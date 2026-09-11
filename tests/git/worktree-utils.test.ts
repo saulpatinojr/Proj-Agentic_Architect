@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { WorktreeManager, gitChangedFiles, isSensitiveRepositoryPath, resolveRepositoryRoot, safeGitRefSegment } from '../../packages/git/src/index.js';
+import { WorktreeManager, assertSafeChangedPaths, gitChangedFiles, isSensitiveRepositoryPath, resolveRepositoryRoot, safeGitRefSegment } from '../../packages/git/src/index.js';
 
 describe('git helpers', () => {
   it('can inspect the current repository without mutating it', () => {
@@ -16,6 +16,24 @@ describe('git helpers', () => {
     expect(isSensitiveRepositoryPath('certs/client.pem')).toBe(true);
     expect(isSensitiveRepositoryPath('.env.example')).toBe(false);
     expect(isSensitiveRepositoryPath('src/index.ts')).toBe(false);
+  });
+
+  it('returns the destination path for Git renames so sensitive-path checks cannot be bypassed', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-rename-repo-'));
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'safe.txt'), 'fixture\n');
+      execFileSync('git', ['add', 'safe.txt'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      execFileSync('git', ['mv', 'safe.txt', '.env'], { cwd: repositoryRoot });
+
+      const files = gitChangedFiles(repositoryRoot);
+      expect(files).toContain('.env');
+      expect(files.some((path) => path.includes(' -> '))).toBe(false);
+      expect(() => assertSafeChangedPaths(files)).toThrow(/Sensitive repository paths/);
+    } finally {
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
   });
 
   it('sanitizes externally supplied task and agent IDs into valid ref components', () => {
