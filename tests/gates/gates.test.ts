@@ -39,6 +39,28 @@ describe('deterministic gates', () => {
     }
   });
 
+  it('does not scan a repository tree when profiles use only exact-file detection', () => {
+    const missingRoot = join(tmpdir(), `cc-no-scan-${Date.now()}`);
+    expect(() => detectGateProfiles(missingRoot, {
+      version: 1,
+      profiles: {
+        exact: {
+          detect: { any_file: ['package.json'] },
+          gates: [],
+        },
+      },
+    })).not.toThrow();
+    expect(detectGateProfiles(missingRoot, {
+      version: 1,
+      profiles: {
+        exact: {
+          detect: { any_file: ['package.json'] },
+          gates: [],
+        },
+      },
+    })).toEqual([]);
+  });
+
   it('can execute gates through an injected deterministic executor', () => {
     const executions = runGates(resolve('.'), ['code-conductor'], (_cwd, command, args) => ({ status: 0, stdout: `${command} ${args.join(' ')} ok`, stderr: '' }));
     expect(executions.length).toBeGreaterThan(0);
