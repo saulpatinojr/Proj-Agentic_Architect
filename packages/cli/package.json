@@ -4,11 +4,10 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "cc": "dist/index.js"
-  },
+  "bin": { "cc": "dist/index.js" },
   "dependencies": {
     "@code-conductor/core": "0.1.0",
-    "@code-conductor/policy": "0.1.0"
+    "@code-conductor/policy": "0.1.0",
+    "@code-conductor/runtime": "0.1.0"
   }
 }

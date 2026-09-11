@@ -17,7 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "cc:validate": "npm run build && node packages/cli/dist/index.js validate .",
-    "cc:doctor": "npm run build && node packages/cli/dist/index.js doctor ."
+    "cc:doctor": "npm run build && node packages/cli/dist/index.js doctor .",
+    "cc:plan": "npm run build && node packages/cli/dist/index.js plan --repo . --risk R1 --objective 'Validate Code Conductor planning'"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

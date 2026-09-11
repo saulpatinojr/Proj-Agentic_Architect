@@ -1,0 +1,15 @@
+{
+  "name": "@code-conductor/runtime",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "dependencies": {
+    "@code-conductor/adapters": "0.1.0",
+    "@code-conductor/evidence": "0.1.0",
+    "@code-conductor/git": "0.1.0",
+    "@code-conductor/schemas": "0.1.0",
+    "yaml": "^2.8.0"
+  }
+}

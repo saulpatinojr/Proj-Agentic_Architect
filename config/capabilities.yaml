@@ -11,11 +11,7 @@ harnesses:
     auth_boundary: github
     subscription: copilot-pro-plus
     command_candidates: [gh]
-    strengths:
-      - github_native_pr_review
-      - github_repository_context
-      - github_actions_context
-      - pull_request_quality_gate
+    strengths: [github_native_pr_review, github_repository_context, github_actions_context, pull_request_quality_gate]
     cli_preferred: false
 
   claude:
@@ -23,36 +19,29 @@ harnesses:
     auth_boundary: claude-code
     subscription: claude-max
     command_candidates: [claude]
-    strengths:
-      - implementation
-      - refactoring
-      - codebase_reasoning
-      - independent_review
+    strengths: [implementation, refactoring, codebase_reasoning, independent_review]
     cli_preferred: true
+    headless:
+      command: claude
+      arguments: [-p, --output-format, json]
 
   codex:
     provider: openai
     auth_boundary: codex
     subscription: chatgpt-business
     command_candidates: [codex]
-    strengths:
-      - implementation
-      - debugging
-      - testing
-      - repository_work
+    strengths: [implementation, debugging, testing, repository_work]
     cli_preferred: true
+    headless:
+      command: codex
+      arguments: [exec, --json]
 
   kiro:
     provider: aws
     auth_boundary: kiro-cli
     subscription: kiro-pro
     command_candidates: [kiro-cli]
-    strengths:
-      - specification
-      - requirements
-      - design_planning
-      - implementation_planning
-      - headless_worker
+    strengths: [specification, requirements, design_planning, implementation_planning, headless_worker]
     cli_preferred: true
     headless:
       command: kiro-cli
@@ -65,11 +54,7 @@ harnesses:
     auth_boundary: antigravity-cli
     subscription: google-ai-pro
     command_candidates: [agy]
-    strengths:
-      - google_native_agent_work
-      - gcp_specialization
-      - independent_implementation
-      - independent_review
+    strengths: [google_native_agent_work, gcp_specialization, independent_implementation, independent_review]
     cli_preferred: true
     headless:
       command: agy
@@ -79,10 +64,7 @@ harnesses:
     provider: perplexity
     auth_boundary: perplexity-pro-client
     subscription: perplexity-pro
-    strengths:
-      - web_research
-      - source_discovery
-      - research_synthesis
+    strengths: [web_research, source_discovery, research_synthesis]
     cli_preferred: false
     automation_modes:
       subscription_manual:
@@ -90,6 +72,14 @@ harnesses:
       official_mcp_api:
         separately_billed_api: true
         enabled_by_default: false
+
+  internal-validator:
+    provider: code-conductor
+    auth_boundary: local-process
+    subscription: none
+    command_candidates: []
+    strengths: [deterministic_validation]
+    cli_preferred: true
 
 routing_invariants:
   - prefer_unique_platform_advantage

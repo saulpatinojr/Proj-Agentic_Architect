@@ -4,6 +4,10 @@
     { "path": "./packages/schemas" },
     { "path": "./packages/core" },
     { "path": "./packages/policy" },
+    { "path": "./packages/evidence" },
+    { "path": "./packages/git" },
+    { "path": "./packages/adapters" },
+    { "path": "./packages/runtime" },
     { "path": "./packages/cli" }
   ]
 }

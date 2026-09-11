@@ -1,0 +1,22 @@
+version: 1
+
+execution:
+  default_timeout_ms: 1800000
+  max_retries_per_assignment: 1
+  max_escalations_per_task: 2
+  modifying_agents_use_worktrees: true
+  review_agents_read_only: true
+  parallelize_independent_assignments: true
+
+billing:
+  mode: subscription_first
+  allow_separately_billed_api: false
+
+independence:
+  r2_challenger_different_provider: true
+  r3_security_reviewer_different_assignment_from_builder: true
+
+completion:
+  require_all_blocking_gates_pass: true
+  require_blocking_findings_resolved: true
+  require_human_approval_for: [R3, R4]

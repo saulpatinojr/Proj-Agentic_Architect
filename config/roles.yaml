@@ -33,7 +33,7 @@ roles:
     may_merge: false
 
   reviewer:
-    preferred_harnesses: [copilot-github, claude, codex, antigravity]
+    preferred_harnesses: [claude, codex, antigravity, kiro]
     stance: critical
     may_modify_code: false
     may_review: true
@@ -41,6 +41,7 @@ roles:
     may_merge: false
 
   challenger:
+    preferred_harnesses: [claude, codex, antigravity, kiro]
     stance: critical
     may_modify_code: false
     may_review: true
@@ -50,6 +51,7 @@ roles:
       different_provider_from_builder_when_risk_at_least: R2
 
   security_reviewer:
+    preferred_harnesses: [claude, codex, antigravity, kiro]
     stance: critical
     may_modify_code: false
     may_review: true
@@ -58,6 +60,7 @@ roles:
     may_merge: false
 
   validator:
+    preferred_harnesses: [internal-validator]
     stance: neutral
     may_modify_code: false
     may_execute_validation: true
@@ -74,6 +77,7 @@ roles:
     may_merge: false
 
   arbiter:
+    preferred_harnesses: [codex, claude, antigravity, kiro]
     stance: neutral
     may_modify_code: false
     may_review: true
@@ -82,6 +86,7 @@ roles:
     may_merge: false
 
   finalizer:
+    preferred_harnesses: [codex, claude, antigravity, kiro]
     stance: neutral
     may_modify_code: false
     may_review: true
