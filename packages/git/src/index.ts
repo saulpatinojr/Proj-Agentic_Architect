@@ -47,20 +47,31 @@ function git(cwd: string, args: string[], allowFailure = false): string {
     const diagnostic = [result.stderr || '', result.stdout || ''].filter(Boolean).join('\n').trim();
     throw new Error(`git ${args.join(' ')} failed${diagnostic ? `: ${diagnostic}` : ` (exit ${String(result.status)})`}`);
   }
-  return (result.stdout || '').trim();
+  return result.stdout || '';
 }
 
 export function resolveRepositoryRoot(cwd: string): string {
-  return resolve(git(cwd, ['rev-parse', '--show-toplevel']));
+  return resolve(git(cwd, ['rev-parse', '--show-toplevel']).trim());
 }
 
 export function gitChangedFiles(cwd: string): string[] {
-  const output = git(cwd, ['status', '--porcelain=v1'], true);
-  return output ? output.split(/\r?\n/).map((line) => line.slice(3).trim()).filter(Boolean) : [];
+  const output = git(cwd, ['status', '--porcelain=v1', '-z'], true);
+  if (!output) return [];
+  const entries = output.split('\0');
+  const files: string[] = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    if (!entry || entry.length < 4) continue;
+    const status = entry.slice(0, 2);
+    const path = entry.slice(3);
+    if (path) files.push(path);
+    if (status.includes('R') || status.includes('C')) index += 1;
+  }
+  return files;
 }
 
 export function gitHead(cwd: string): string {
-  return git(cwd, ['rev-parse', 'HEAD']);
+  return git(cwd, ['rev-parse', 'HEAD']).trim();
 }
 
 export function isSensitiveRepositoryPath(path: string): boolean {
@@ -81,7 +92,7 @@ export function assertSafeChangedPaths(files: string[]): void {
 }
 
 export function worktreeChangedFiles(handle: WorktreeHandle): string[] {
-  const committed = git(handle.path, ['diff', '--name-only', `${handle.baseSha}..HEAD`], true).split(/\r?\n/).filter(Boolean);
+  const committed = git(handle.path, ['diff', '--name-only', `${handle.baseSha}..HEAD`], true).trim().split(/\r?\n/).filter(Boolean);
   return [...new Set([...committed, ...gitChangedFiles(handle.path)])].sort();
 }
 
@@ -109,7 +120,7 @@ export class WorktreeManager {
 
   create(repositoryRoot: string, taskId: string, agentId: string, baseRef = 'HEAD'): WorktreeHandle {
     const repo = resolveRepositoryRoot(repositoryRoot);
-    const baseSha = git(repo, ['rev-parse', baseRef]);
+    const baseSha = git(repo, ['rev-parse', baseRef]).trim();
     const repoId = createHash('sha256').update(repo).digest('hex').slice(0, 10);
     const task = safeGitRefSegment(taskId);
     const agent = safeGitRefSegment(agentId);
