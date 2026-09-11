@@ -32,6 +32,14 @@ roles:
     may_approve: false
     may_merge: false
 
+  reviewer:
+    preferred_harnesses: [copilot-github, claude, codex, antigravity]
+    stance: critical
+    may_modify_code: false
+    may_review: true
+    may_approve: false
+    may_merge: false
+
   challenger:
     stance: critical
     may_modify_code: false

@@ -9,7 +9,7 @@ risk_classes:
 
   R1:
     description: normal engineering change
-    required_roles: [builder, validator]
+    required_roles: [builder, reviewer, validator]
     independent_review: true
     deterministic_validation: true
     human_approval: false

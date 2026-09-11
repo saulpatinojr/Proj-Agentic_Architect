@@ -1,0 +1,48 @@
+name: Code Conductor CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'bootstrap/**'
+      - 'feature/**'
+      - 'fix/**'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package.json
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Typecheck and build
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Validate repository policy
+        run: node packages/cli/dist/index.js validate .
+
+      - name: APM lock audit status
+        shell: bash
+        run: |
+          if [[ -f apm.lock.yaml ]]; then
+            echo "apm.lock.yaml present; full APM audit is enabled by the dedicated APM gate once the CLI is pinned."
+          else
+            echo "::notice::apm.lock.yaml is intentionally pending local APM install/validation."
+          fi

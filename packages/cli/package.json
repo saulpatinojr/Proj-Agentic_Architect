@@ -1,0 +1,14 @@
+{
+  "name": "@code-conductor/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "cc": "dist/index.js"
+  },
+  "dependencies": {
+    "@code-conductor/core": "workspace:*",
+    "@code-conductor/policy": "workspace:*"
+  }
+}
