@@ -9,7 +9,8 @@ export interface GitHubCommandResult {
 
 function gh(cwd: string, args: string[]): GitHubCommandResult {
   const result = spawnSync('gh', args, { cwd, encoding: 'utf8', shell: false });
-  return { ok: result.status === 0, status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
+  const stderr = [result.stderr || '', result.error?.message || ''].filter(Boolean).join('\n');
+  return { ok: result.status === 0, status: result.status, stdout: result.stdout || '', stderr };
 }
 
 export function githubAuthStatus(cwd: string): GitHubCommandResult {
