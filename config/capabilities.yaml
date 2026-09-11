@@ -10,6 +10,7 @@ harnesses:
     provider: github
     auth_boundary: github
     subscription: copilot-pro-plus
+    command_candidates: [gh]
     strengths:
       - github_native_pr_review
       - github_repository_context
@@ -21,6 +22,7 @@ harnesses:
     provider: anthropic
     auth_boundary: claude-code
     subscription: claude-max
+    command_candidates: [claude]
     strengths:
       - implementation
       - refactoring
@@ -32,6 +34,7 @@ harnesses:
     provider: openai
     auth_boundary: codex
     subscription: chatgpt-business
+    command_candidates: [codex]
     strengths:
       - implementation
       - debugging
@@ -43,6 +46,7 @@ harnesses:
     provider: aws
     auth_boundary: kiro-cli
     subscription: kiro-pro
+    command_candidates: [kiro-cli]
     strengths:
       - specification
       - requirements
@@ -50,17 +54,26 @@ harnesses:
       - implementation_planning
       - headless_worker
     cli_preferred: true
+    headless:
+      command: kiro-cli
+      arguments: [chat, --no-interactive, --output-format, stream-json]
+      api_key_variable: KIRO_API_KEY
+      subscription_credits: true
 
   antigravity:
     provider: google
     auth_boundary: antigravity-cli
     subscription: google-ai-pro
+    command_candidates: [agy]
     strengths:
       - google_native_agent_work
       - gcp_specialization
       - independent_implementation
       - independent_review
     cli_preferred: true
+    headless:
+      command: agy
+      prompt_argument: -p
 
   perplexity:
     provider: perplexity

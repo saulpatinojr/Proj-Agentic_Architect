@@ -27,15 +27,15 @@ function doctor(root: string): number {
     ['apm', ['apm']],
     ['claude', ['claude']],
     ['codex', ['codex']],
-    ['kiro', ['kiro']],
-    ['antigravity', ['antigravity']],
+    ['kiro', ['kiro-cli']],
+    ['antigravity', ['agy']],
   ] as const;
 
   console.log(`Code Conductor doctor ${VERSION}`);
   let missingRequired = false;
   for (const [name, candidates] of clients) {
     const found = candidates.some(hasCommand);
-    console.log(`${found ? 'OK' : 'MISSING'} ${name}`);
+    console.log(`${found ? 'OK' : 'MISSING'} ${name} (${candidates.join('|')})`);
     if (!found && ['git', 'github', 'apm'].includes(name)) missingRequired = true;
   }
 

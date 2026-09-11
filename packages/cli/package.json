@@ -8,7 +8,7 @@
     "cc": "dist/index.js"
   },
   "dependencies": {
-    "@code-conductor/core": "workspace:*",
-    "@code-conductor/policy": "workspace:*"
+    "@code-conductor/core": "0.1.0",
+    "@code-conductor/policy": "0.1.0"
   }
 }

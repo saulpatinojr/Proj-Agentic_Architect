@@ -11,6 +11,6 @@
     }
   },
   "dependencies": {
-    "@code-conductor/schemas": "workspace:*"
+    "@code-conductor/schemas": "0.1.0"
   }
 }
