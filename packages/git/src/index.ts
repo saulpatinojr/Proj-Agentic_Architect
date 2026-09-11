@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -22,6 +22,11 @@ export interface AgentCommit {
 
 function safeSegment(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'agent';
+}
+
+function ensurePrivateDirectory(path: string): void {
+  mkdirSync(path, { recursive: true, mode: 0o700 });
+  chmodSync(path, 0o700);
 }
 
 function git(cwd: string, args: string[], allowFailure = false): string {
@@ -86,7 +91,7 @@ export class WorktreeManager {
 
   constructor(root = join(homedir(), '.code-conductor', 'worktrees')) {
     this.root = root;
-    mkdirSync(root, { recursive: true });
+    ensurePrivateDirectory(root);
   }
 
   create(repositoryRoot: string, taskId: string, agentId: string, baseRef = 'HEAD'): WorktreeHandle {
@@ -96,9 +101,13 @@ export class WorktreeManager {
     const task = safeSegment(taskId);
     const agent = safeSegment(agentId);
     const branch = `cc/${task}/${agent}`;
-    const path = join(this.root, repoId, task, agent);
-    mkdirSync(join(this.root, repoId, task), { recursive: true });
+    const repoDirectory = join(this.root, repoId);
+    const taskDirectory = join(repoDirectory, task);
+    const path = join(taskDirectory, agent);
+    ensurePrivateDirectory(repoDirectory);
+    ensurePrivateDirectory(taskDirectory);
     git(repo, ['worktree', 'add', '-b', branch, path, baseSha]);
+    chmodSync(path, 0o700);
     return { repositoryRoot: repo, path, branch, baseRef, baseSha, taskId, agentId };
   }
 
