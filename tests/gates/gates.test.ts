@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { resolve } from 'node:path';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { blockingGateFailure, detectGateProfiles, globMatch, runGates, type GateExecution } from '../../packages/gates/src/index.js';
 
 describe('deterministic gates', () => {
@@ -14,6 +16,27 @@ describe('deterministic gates', () => {
     expect(globMatch('roles/web/tasks/main.yml', 'roles/**/tasks/*.yml')).toBe(true);
     expect(globMatch('src/index.ts', 'src/*.ts')).toBe(true);
     expect(globMatch('src/nested/index.ts', 'src/*.ts')).toBe(false);
+  });
+
+  it('detects recursive gate profiles below the former depth cutoff', () => {
+    const root = mkdtempSync(join(tmpdir(), 'cc-gates-'));
+    try {
+      const deepDirectory = join(root, 'a', 'b', 'c', 'd', 'e', 'f', 'g');
+      mkdirSync(deepDirectory, { recursive: true });
+      writeFileSync(join(deepDirectory, 'main.tf'), 'terraform {}\n');
+      const profiles = detectGateProfiles(root, {
+        version: 1,
+        profiles: {
+          terraform: {
+            detect: { any_glob: ['**/*.tf'] },
+            gates: [],
+          },
+        },
+      });
+      expect(profiles).toContain('terraform');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('can execute gates through an injected deterministic executor', () => {
