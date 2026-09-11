@@ -8,6 +8,9 @@
     { "path": "./packages/git" },
     { "path": "./packages/adapters" },
     { "path": "./packages/runtime" },
+    { "path": "./packages/mcp" },
+    { "path": "./packages/apm-adapter" },
+    { "path": "./packages/github-gate" },
     { "path": "./packages/cli" }
   ]
 }

@@ -1,0 +1,38 @@
+name: APM bootstrap materialization
+
+on:
+  push:
+    branches:
+      - bootstrap/code-conductor-v0.1
+    paths:
+      - 'apm.yml'
+      - 'apm-policy.yml'
+      - '.apm/**'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - uses: microsoft/apm-action@v1
+      - name: Validate materialized package
+        run: apm audit --ci --policy ./apm-policy.yml --no-fail-fast
+      - name: Commit generated APM state when changed
+        shell: bash
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "APM projections and lockfile already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(apm): materialize locked agent pack"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
