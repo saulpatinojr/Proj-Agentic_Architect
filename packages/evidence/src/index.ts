@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import type { RunManifest } from '@code-conductor/schemas';
@@ -16,33 +16,41 @@ export function conductorHome(env: NodeJS.ProcessEnv = process.env): string {
   return env.CODE_CONDUCTOR_HOME || join(homedir(), '.code-conductor');
 }
 
+function ensurePrivateDirectory(path: string): void {
+  mkdirSync(path, { recursive: true, mode: 0o700 });
+  chmodSync(path, 0o700);
+}
+
 export class RunStore {
   readonly root: string;
 
   constructor(root = join(conductorHome(), 'runs')) {
     this.root = root;
-    mkdirSync(root, { recursive: true });
+    ensurePrivateDirectory(root);
   }
 
   runDirectory(runId: string): string {
     const safe = runId.replace(/[^A-Za-z0-9._-]/g, '_');
     const dir = join(this.root, safe);
-    mkdirSync(dir, { recursive: true });
+    ensurePrivateDirectory(dir);
     return dir;
   }
 
   saveManifest(manifest: RunManifest): string {
     const target = join(this.runDirectory(manifest.runId), 'manifest.json');
     const temp = `${target}.tmp`;
-    writeFileSync(temp, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+    writeFileSync(temp, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    chmodSync(temp, 0o600);
     renameSync(temp, target);
+    chmodSync(target, 0o600);
     return target;
   }
 
   appendEvent(event: RunEvent): string {
     const target = join(this.runDirectory(event.runId), 'events.jsonl');
-    mkdirSync(dirname(target), { recursive: true });
-    appendFileSync(target, `${JSON.stringify(event)}\n`, 'utf8');
+    ensurePrivateDirectory(dirname(target));
+    appendFileSync(target, `${JSON.stringify(event)}\n`, { encoding: 'utf8', mode: 0o600 });
+    chmodSync(target, 0o600);
     return target;
   }
 }
