@@ -24,12 +24,14 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - Pinned maintained GitHub Actions to reviewed immutable commit SHAs.
 - Pinned executable Ansible and Azure MCP npm package references instead of resolving floating versions at runtime.
 - Reworked deterministic gate glob matching and expanded recursive-pattern regression coverage.
+- Corrected MCP profile detection so GitHub tooling is selected only for repositories with a Git marker.
+- Preserved advisory deterministic-gate semantics through final readiness evaluation.
 
 ### Security
 
 - Subscription-first billing policy and detection of API-key environment variables that could bypass intended billing paths.
 - Fail-closed structured agent-result parsing and explicit workstation trust before unattended CLI execution.
 - Human approval boundary for high-risk/destructive external operations.
-- Local run/evidence directories and files use owner-only permissions on POSIX systems.
+- Local run/evidence and workstation-trust state directories/files use owner-only permissions on POSIX systems.
 - Added high/critical dependency audit as a CI gate; the current dependency graph reports zero known npm vulnerabilities.
-- Acted on the first GitHub Copilot Gatekeeper review and added regression coverage for the resulting fixes and deliberate fail-closed trust behavior.
+- Acted on two GitHub Copilot Gatekeeper review rounds and added regression coverage for the resulting fixes and deliberate fail-closed trust behavior.
