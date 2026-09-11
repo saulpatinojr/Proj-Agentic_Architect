@@ -54,18 +54,17 @@ function defaultExecutor(cwd: string, command: string, args: string[], timeoutMs
   };
 }
 
-function listFiles(root: string, maxDepth = 5): string[] {
+function listFiles(root: string): string[] {
   const output: string[] = [];
-  function walk(dir: string, depth: number): void {
-    if (depth > maxDepth) return;
+  function walk(dir: string): void {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (['.git', 'node_modules', 'dist', '.terraform'].includes(entry.name)) continue;
       const full = join(dir, entry.name);
-      if (entry.isDirectory()) walk(full, depth + 1);
+      if (entry.isDirectory()) walk(full);
       else output.push(relative(root, full).replaceAll('\\', '/'));
     }
   }
-  walk(root, 0);
+  walk(root);
   return output;
 }
 
