@@ -1,0 +1,87 @@
+version: 1
+
+defaults:
+  billing_policy: subscription_first
+  allow_separately_billed_api: false
+  require_official_client_or_api: true
+
+harnesses:
+  copilot-github:
+    provider: github
+    auth_boundary: github
+    subscription: copilot-pro-plus
+    strengths:
+      - github_native_pr_review
+      - github_repository_context
+      - github_actions_context
+      - pull_request_quality_gate
+    cli_preferred: false
+
+  claude:
+    provider: anthropic
+    auth_boundary: claude-code
+    subscription: claude-max
+    strengths:
+      - implementation
+      - refactoring
+      - codebase_reasoning
+      - independent_review
+    cli_preferred: true
+
+  codex:
+    provider: openai
+    auth_boundary: codex
+    subscription: chatgpt-business
+    strengths:
+      - implementation
+      - debugging
+      - testing
+      - repository_work
+    cli_preferred: true
+
+  kiro:
+    provider: aws
+    auth_boundary: kiro-cli
+    subscription: kiro-pro
+    strengths:
+      - specification
+      - requirements
+      - design_planning
+      - implementation_planning
+      - headless_worker
+    cli_preferred: true
+
+  antigravity:
+    provider: google
+    auth_boundary: antigravity-cli
+    subscription: google-ai-pro
+    strengths:
+      - google_native_agent_work
+      - gcp_specialization
+      - independent_implementation
+      - independent_review
+    cli_preferred: true
+
+  perplexity:
+    provider: perplexity
+    auth_boundary: perplexity-pro-client
+    subscription: perplexity-pro
+    strengths:
+      - web_research
+      - source_discovery
+      - research_synthesis
+    cli_preferred: false
+    automation_modes:
+      subscription_manual:
+        separately_billed_api: false
+      official_mcp_api:
+        separately_billed_api: true
+        enabled_by_default: false
+
+routing_invariants:
+  - prefer_unique_platform_advantage
+  - prefer_subscription_backed_lane
+  - do_not_route_by_vendor_brand_alone
+  - keep_harness_specific_behavior_out_of_core
+  - require_independent_review_for_r2_or_higher
+  - require_human_approval_for_r3_or_higher
