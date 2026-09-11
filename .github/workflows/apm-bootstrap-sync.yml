@@ -1,40 +1,23 @@
-name: APM bootstrap materialization
+name: APM materialization (manual maintainer operation)
 
 on:
-  push:
-    branches:
-      - bootstrap/code-conductor-v0.1
-    paths:
-      - 'apm.yml'
-      - 'apm-policy.yml'
-      - '.apm/**'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  materialize:
-    if: github.actor != 'github-actions[bot]'
+  validate-materialization:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
       - uses: microsoft/apm-action@v1
         with:
           apm-version: '0.30.0'
-      - name: Validate materialized package
-        run: apm audit --ci --policy ./apm-policy.yml --no-fail-fast
-      - name: Commit generated APM state when changed
-        shell: bash
+          setup-only: true
+      - name: Explain maintainer workflow
         run: |
-          git add -A
-          if git diff --cached --quiet; then
-            echo "APM projections and lockfile already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(apm): materialize locked agent pack"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "APM materialization is intentionally not written back by CI."
+          echo "Maintainers update canonical .apm/ or apm.yml locally, run 'apm install', commit apm.lock.yaml and projections, then rely on the read-only APM audit gate."
+      - name: Audit current committed state
+        run: apm audit --ci --policy ./apm-policy.yml --no-fail-fast

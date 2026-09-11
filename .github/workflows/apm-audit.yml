@@ -9,17 +9,25 @@ on:
       - '.apm/**'
       - '.github/**'
       - '.claude/**'
+      - '.codex/**'
       - '.kiro/**'
       - '.agents/**'
   push:
     branches:
       - main
       - 'bootstrap/**'
+      - 'feature/**'
+      - 'fix/**'
     paths:
       - 'apm.yml'
       - 'apm.lock.yaml'
       - 'apm-policy.yml'
       - '.apm/**'
+      - '.github/**'
+      - '.claude/**'
+      - '.codex/**'
+      - '.kiro/**'
+      - '.agents/**'
 
 permissions:
   contents: read
@@ -32,5 +40,6 @@ jobs:
       - uses: microsoft/apm-action@v1
         with:
           apm-version: '0.30.0'
-      - name: APM policy, integrity, and drift audit
+          setup-only: true
+      - name: Verify committed APM package, lockfile, policy, projections, and drift
         run: apm audit --ci --policy ./apm-policy.yml --no-fail-fast

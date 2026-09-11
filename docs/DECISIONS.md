@@ -35,7 +35,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 | D-021 | Implementers never self-review, self-approve, self-merge, or bypass deterministic required gates. | LOCKED |
 | D-022 | Human approval remains mandatory for high-impact/destructive/external production operations as defined by risk policy. | LOCKED |
 | D-023 | Per-project MCP activation is minimal and profile-driven. Do not load every available MCP/tool into every agent context. | LOCKED |
-| D-024 | Initial MCP/reference catalog should prioritize official Microsoft, GitHub, HashiCorp Terraform, Ansible, AWS, Google Cloud, Kiro/vendor-required integrations, and Perplexity when explicitly enabled. | LOCKED |
+| D-024 | Initial MCP/reference catalog prioritizes official Microsoft, GitHub, HashiCorp Terraform, Ansible, AWS, Google Cloud, Kiro/vendor-required integrations, and Perplexity when explicitly enabled. | LOCKED |
 | D-025 | Perplexity discovers sources; implementation-impacting technical claims should be reconfirmed against official vendor documentation or executable repository evidence where available. | LOCKED |
 | D-026 | Agent outputs become structured evidence, not only prose. Core contracts include `TaskEnvelope`, `AgentAssignment`, `AgentResult`, `Evidence`, `Finding`, `GateResult`, `ReviewResult`, `MergeDecision`, and `RunManifest`. | LOCKED |
 | D-027 | Risk class controls team size and required independent roles/gates; trivial work must not incur a large agent committee. | LOCKED |
@@ -46,29 +46,39 @@ This file is the durable record of user-approved architectural decisions. It exi
 | D-032 | `AGENTS.md` is the repository constitution, not the entire agent roster. Reusable team roles/skills live in APM-backed packs and vendor-neutral configuration. | LOCKED |
 | D-033 | The project dogfoods itself: Code Conductor's own implementation is the first R1/R2 multi-agent validation scenario. | LOCKED |
 | D-034 | Architecture changes require an ADR when they alter a locked decision or are forced by a verified official-platform limitation. | LOCKED |
+| D-035 | APM CLI version `0.30.0` is explicitly pinned in CI until a newer version is deliberately validated; the APM action's default CLI version is not trusted for compatibility-critical behavior. | LOCKED |
+| D-036 | APM-generated lock/projection state is committed after maintainer materialization; normal CI audits it read-only with `setup-only: true` and does not auto-write back to branches. | LOCKED |
+| D-037 | Runtime retries are bounded and important work must escalate or fail explicitly rather than loop indefinitely. | LOCKED |
+| D-038 | CI never consumes paid AI subscriptions or separately billed model APIs; multi-agent runtime behavior is tested with deterministic fake adapters/fixtures. | LOCKED |
 
-## Items requiring local/runtime validation before foundation merge
+## Validated implementation facts
+
+| ID | Fact | Evidence/status |
+|---|---|---|
+| V-001 | APM 0.30.0 recognizes the explicit targets `agent-skills`, `antigravity`, `claude`, `codex`, `copilot`, and `kiro`. | VALIDATED in GitHub Actions on 2026-09-11. |
+| V-002 | APM generated and committed `apm.lock.yaml` and harness projections from canonical `.apm/` sources. | VALIDATED by the GitHub Actions materialization commit on 2026-09-11. |
+| V-003 | APM replay reported no drift after installation; source-attribution policy was then enabled in `apm.yml` as required by audit. | VALIDATED in GitHub Actions. |
+| V-004 | TypeScript workspace, core state machine, policy validation, runtime planner, worktree utilities, and current unit tests build/pass in GitHub Actions. | VALIDATED in GitHub Actions. |
+
+## Items requiring workstation/runtime validation before subscription-backed execution
 
 | ID | Item | Status |
 |---|---|---|
-| V-001 | Run the current/pinned APM CLI against this branch and validate `apm.yml`, explicit targets, materialized projections, and `apm audit --ci`. | VALIDATE |
-| V-002 | Generate and commit `apm.lock.yaml` only through the APM CLI; never hand-author it. | VALIDATE |
-| V-003 | Confirm official CLI/client authentication for Copilot, Claude Code/Max, Codex/ChatGPT Business, Kiro Pro, and Antigravity on the actual workstation. | VALIDATE |
-| V-004 | Confirm the exact Kiro Pro headless authentication/credit behavior on the installed current Kiro CLI before wiring unattended execution. | VALIDATE |
-| V-005 | Confirm current VS Code/AHP harness capabilities and authenticated MCP constraints on the installed VS Code release; keep all such integration behind adapters. | VALIDATE |
-| V-006 | Confirm current official MCP endpoints/toolsets and authentication for every project profile before enabling them in production workflows. | VALIDATE |
+| W-001 | Confirm official CLI/client authentication for Copilot, Claude Code/Max, Codex/ChatGPT Business, Kiro Pro, and Antigravity on the actual workstation. | VALIDATE |
+| W-002 | Confirm Kiro Pro headless authentication/credit behavior on the installed current Kiro CLI before unattended subscription execution. | VALIDATE |
+| W-003 | Confirm current VS Code/AHP harness capabilities and authenticated MCP constraints on the installed VS Code release; keep all such integration behind adapters. | VALIDATE |
+| W-004 | Confirm official MCP endpoint/toolset/auth behavior for each project profile before granting any write-capable runtime authority. | VALIDATE |
+| W-005 | Confirm exact installed CLI permission/sandbox flags for Codex, Claude, Kiro, and Antigravity before Code Conductor enables modifying execution through that harness. | VALIDATE |
 
 ## Open implementation choices
 
-These are deliberately not locked yet:
+These remain deliberately replaceable behind interfaces unless/until an ADR locks them:
 
-- exact Node package manager/workspace tool
-- exact schema validator library
-- exact SQLite client/ORM
+- exact SQLite client/ORM for persistent indexed task state beyond the v0.1 file-backed run/evidence store
 - exact internal event-bus implementation
-- exact VS Code webview/tree-view composition
+- exact VS Code tree/webview composition beyond the locked six views
 - exact telemetry backend beyond local structured logs for v0.1
-- exact model version names; runtime capability discovery/configuration should prevent brittle hard-coding
+- exact model version names; runtime capability discovery/configuration prevents brittle hard-coding
 
 ## Change rule
 
