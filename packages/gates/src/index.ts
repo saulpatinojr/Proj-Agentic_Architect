@@ -104,14 +104,16 @@ export function loadGateConfig(root: string): GateConfig {
 }
 
 export function detectGateProfiles(root: string, config = loadGateConfig(root)): string[] {
-  const files = listFiles(root);
+  let files: string[] | undefined;
   const selected: string[] = [];
   for (const [name, profile] of Object.entries(config.profiles)) {
     const detect = profile.detect;
     if (!detect) continue;
     const allFiles = detect.all_files?.every((file) => existsSync(join(root, file))) ?? false;
     const anyFile = detect.any_file?.some((file) => existsSync(join(root, file))) ?? false;
-    const anyGlob = detect.any_glob?.some((pattern) => files.some((file) => globMatch(file, pattern))) ?? false;
+    const anyGlob = detect.any_glob?.length
+      ? detect.any_glob.some((pattern) => (files ??= listFiles(root)).some((file) => globMatch(file, pattern)))
+      : false;
     if (allFiles || anyFile || anyGlob) selected.push(name);
   }
   return selected;
