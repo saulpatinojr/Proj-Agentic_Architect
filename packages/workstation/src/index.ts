@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -20,6 +20,11 @@ export function workstationStatePath(env: NodeJS.ProcessEnv = process.env): stri
   return env.CODE_CONDUCTOR_WORKSTATION_STATE || join(env.CODE_CONDUCTOR_HOME || join(homedir(), '.code-conductor'), 'workstation.json');
 }
 
+function ensurePrivateDirectory(path: string): void {
+  mkdirSync(path, { recursive: true, mode: 0o700 });
+  chmodSync(path, 0o700);
+}
+
 export class WorkstationStore {
   constructor(public readonly path = workstationStatePath()) {}
 
@@ -33,10 +38,12 @@ export class WorkstationStore {
   }
 
   save(state: WorkstationState): void {
-    mkdirSync(dirname(this.path), { recursive: true });
+    ensurePrivateDirectory(dirname(this.path));
     const temp = `${this.path}.tmp`;
     writeFileSync(temp, `${JSON.stringify(state, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    chmodSync(temp, 0o600);
     renameSync(temp, this.path);
+    chmodSync(this.path, 0o600);
   }
 
   isTrusted(harness: string, mode: HarnessTrustMode): boolean {
