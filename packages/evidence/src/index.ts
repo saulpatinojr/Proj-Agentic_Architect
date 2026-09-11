@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -21,6 +22,17 @@ function ensurePrivateDirectory(path: string): void {
   chmodSync(path, 0o700);
 }
 
+export function safeRunDirectoryName(runId: string): string {
+  if (/^[A-Za-z0-9_-]{1,120}$/.test(runId)) return runId;
+  const digest = createHash('sha256').update(runId).digest('hex').slice(0, 12);
+  const prefix = runId
+    .replace(/[^A-Za-z0-9_-]+/g, '-')
+    .replace(/^[-_]+|[-_]+$/g, '')
+    .slice(0, 96)
+    .replace(/[-_]+$/g, '');
+  return prefix ? `${prefix}-${digest}` : `run-${digest}`;
+}
+
 export class RunStore {
   readonly root: string;
 
@@ -30,8 +42,7 @@ export class RunStore {
   }
 
   runDirectory(runId: string): string {
-    const safe = runId.replace(/[^A-Za-z0-9._-]/g, '_');
-    const dir = join(this.root, safe);
+    const dir = join(this.root, safeRunDirectoryName(runId));
     ensurePrivateDirectory(dir);
     return dir;
   }
