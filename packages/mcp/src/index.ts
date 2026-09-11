@@ -31,7 +31,7 @@ export function loadMcpCatalog(root: string): McpCatalog {
 }
 
 export function detectRepositoryProfiles(root: string): string[] {
-  const profiles = new Set<string>(['github']);
+  const profiles = new Set<string>();
   if (existsSync(join(root, '.git'))) profiles.add('github');
   const markers: Record<string, string[]> = {
     terraform: ['main.tf', 'versions.tf', '.terraform.lock.hcl'],
