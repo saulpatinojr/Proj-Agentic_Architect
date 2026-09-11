@@ -1,5 +1,8 @@
 name: proj-agentic-architect
 version: 0.1.0
+description: Code Conductor multi-provider agent orchestration foundation
+author: saulpatinojr
+license: Apache-2.0
 
 targets:
   - copilot
@@ -11,6 +14,9 @@ targets:
 
 dependencies:
   apm: []
+  mcp: []
+
+includes: auto
 
 scripts:
   doctor: "cc doctor"
