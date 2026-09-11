@@ -1,66 +1,78 @@
-# STARTER.md — Code Conductor v0.1
+# STARTER.md — Code Conductor continuity handoff
 
-This repository is the canonical home for Code Conductor implementation.
+This repository is the canonical home for Code Conductor. Use this file as the short entry point when a new human or AI work session resumes the project.
 
-## Immediate objective
+## Read first
 
-Build a working, VS Code-centered multi-provider agent orchestration system using subscription-backed vendor clients first, APM for portable agent-pack distribution, official MCP servers for tools/reference access, Git worktrees for modifying agents, GitHub for PR/change control, and deterministic validation gates.
+Read in this order before making material changes:
 
-## Locked decisions
+1. `AGENTS.md` — repository constitution.
+2. `docs/DECISIONS.md` — locked decisions and validated facts.
+3. `docs/STATUS.md` — current checkpoint and immediate next milestone.
+4. `docs/IMPLEMENTATION-PLAN.md` — v0.1 release plan/definition of done.
+5. Relevant domain docs under `docs/` and the applicable ADRs.
+6. `CONTRIBUTING.md` before changing branches, APM source, workflows, or governance files.
 
-1. VS Code is the primary cockpit.
-2. Code Conductor is the orchestration/policy layer; it is not an MCP server and not a replacement chat UI.
-3. Microsoft APM is the package/dependency/integrity layer for agent packs, skills, instructions, hooks, and supported MCP declarations.
-4. GitHub is the repository, PR, CI, review, and merge source of truth.
-5. Subscription-backed execution is preferred before separately billed model APIs.
-6. Authentication remains in official vendor clients/credential stores.
-7. CLI/headless execution is preferred for orchestrated worker execution when the vendor officially supports it; interactive IDE/client integrations remain available for human-in-the-loop work.
-8. Provider/model/harness/role/stance/specialization/authority/risk are independent dimensions.
-9. Modifying agents use isolated branches/worktrees.
-10. Implementers do not self-review, self-approve, self-merge, or bypass required gates.
-11. Perplexity is the primary research specialist. Subscription-only mode is human-in-the-loop; automated official MCP mode requires explicit API billing enablement.
-12. GitHub Copilot is the GitHub-native Gatekeeper: PR review, re-review, repository/Actions context, and PR quality checks.
-13. Kiro Pro is the specification/requirements lead and may also provide a subscription-backed headless execution lane through official Kiro CLI capabilities.
-14. Claude Code and Codex are primary implementation/debugging harnesses.
-15. Google Antigravity is the native Google execution lane.
-16. Official vendor MCP/reference sources are used for authoritative validation.
-17. APM-generated harness projections are materialized views, not independently maintained truth.
-18. Human approval remains mandatory for consequential/destructive production operations.
+Do not redesign a locked architecture decision from memory or preference. If verified platform evidence requires a change, create a superseding ADR and update the decision register in the same PR.
 
-## CLI policy
+## Current checkpoint
 
-Use the official CLI/headless client for orchestration when it provides a supported automation interface and subscription-backed authentication:
+The repository foundation is implemented rather than architecture-only:
 
-- Kiro CLI: yes; first-class headless lane for Kiro Pro where supported.
-- Claude Code CLI: yes for execution; preserve Claude Max subscription authentication and avoid unintended API-key precedence.
-- Codex CLI: yes; authenticate with ChatGPT Business where supported.
-- Google Antigravity CLI: yes; native Google lane.
-- GitHub/Copilot CLI and GitHub APIs: use where they uniquely provide GitHub-native workflow/review capabilities; do not reduce Copilot to a generic coding worker.
-- Perplexity Pro: no unofficial CLI automation of the consumer UI. Use the Pro client manually in subscription-only mode, or the official Perplexity MCP/API when API billing is explicitly enabled.
+- TypeScript workspace and structured contracts exist.
+- task state/risk/policy planning and runtime execution foundations exist;
+- bounded retry, structured result parsing, run/evidence persistence, deterministic gates, and worktree handling exist;
+- APM 0.30.0 is pinned, the lockfile and materialized projections are committed, and APM audit passes;
+- `package-lock.json` is committed and CI uses reproducible installs;
+- initial Codex, Claude, Kiro, Antigravity, GitHub, APM, MCP, and workstation adapter boundaries exist;
+- `cc validate`, `doctor`, `plan`, `run`, `harness-smoke`, MCP/APM, and GitHub-gate command paths exist;
+- the VS Code extension foundation exposes Team, Runs, Gates, Connections, Packs, and Usage;
+- repository CI currently passes.
 
-The VS Code extension is a control plane and observability surface. It should launch/open native sessions and diffs rather than reimplement vendor chat clients.
+The authoritative current status is `docs/STATUS.md`.
 
-## Build order
+## Immediate work order
 
-1. Schemas: TaskEnvelope, AgentAssignment, AgentResult, Finding, Evidence, GateResult, MergeDecision, RunManifest.
-2. Capability registry: provider/model/harness/subscription/tool support.
-3. Policy engine: risk, role, stance, authority, separation of duties, API-spend policy.
-4. Harness adapters: Codex, Claude, Kiro, Antigravity, Copilot/GitHub; use AHP where appropriate behind an adapter boundary.
-5. Git worktree manager.
-6. APM adapter and agent-pack compiler/materialization checks.
-7. Official MCP catalog and minimum-tool selection.
-8. GitHub Gatekeeper integration.
-9. Bootstrap/doctor/validate CLI.
-10. Thin VS Code extension: Team, Runs, Gates, Connections, Packs, Usage.
-11. Evaluation/E2E harness.
-12. First production-quality dogfood run against this repository.
+Do not create more architecture scaffolding before proving the existing implementation.
 
-## First Codex task
+1. Complete repository cleanup and merge the validated foundation to `main`.
+2. Follow `docs/WORKSTATION-VALIDATION.md` on the actual VS Code execution workstation.
+3. Validate official subscription authentication and read/modify smoke boundaries for Codex, Claude Code, and Kiro.
+4. Keep Antigravity unattended execution blocked until its permission/sandbox decision is superseded with evidence.
+5. Execute the first real R1 Code Conductor dogfood task using an isolated modifying worker plus independent validation/review.
+6. Raise the same workflow to R2 with a different-provider challenger and GitHub Gatekeeper participation.
+7. Capture structured evidence, fix defects found, and validate the VS Code cockpit against the run.
+8. Triage known dependency audit findings before declaring a v0.1 release candidate.
 
-Codex should begin with `docs/IMPLEMENTATION-PLAN.md`, then implement the schemas and repository skeleton without changing the locked architecture above unless a verified platform limitation requires a documented architecture decision record.
+## Locked operating model
 
-Before coding, run/verify the APM target matrix and inspect `AGENTS.md`.
+- VS Code is the primary cockpit.
+- Code Conductor owns runtime orchestration, risk, authority, evidence, and readiness.
+- APM owns reusable agent-pack dependency/distribution/integrity concerns.
+- MCP provides tools/resources and is not the team scheduler.
+- Git owns code state; GitHub owns PR, Actions, review, and merge state.
+- Official CLI/headless interfaces are preferred for machine orchestration where supported and validated.
+- Native platform surfaces remain first-class when they provide unique value, especially GitHub/Copilot PR and review capabilities.
+- Subscription-backed official clients are preferred before separately billed model APIs.
+- Provider/model/harness/role/stance/specialization/authority/risk are independent dimensions.
+- Modifying agents use isolated branches/worktrees; a clean Git merge is not proof of correctness.
+- Implementers do not self-review, self-approve, self-merge, or bypass deterministic gates.
+- High-impact/destructive external operations retain explicit human approval.
+- Perplexity Pro is the Research Captain in human-in-the-loop subscription mode unless paid official MCP/API automation is explicitly enabled.
+- Kiro Pro is the specification/requirements lead and an eligible headless worker only after the installed client passes the required validation.
 
-## Definition of done for v0.1
+## Repository development checks
 
-A clean machine can clone this repo, authenticate official clients, install APM dependencies, pass `apm audit --ci`, run `cc doctor`, bootstrap a target repository, execute an R1/R2 engineering task through at least two independent agent roles, isolate modifications in worktrees, run deterministic gates, create a GitHub PR, obtain GitHub-native review, collect structured evidence, and stop for human approval before merge when policy requires it.
+```bash
+npm ci --ignore-scripts
+npm run typecheck
+npm test
+npm run cc:validate
+apm audit --ci --policy ./apm-policy.yml --no-fail-fast
+```
+
+For live clients, use the smoke-test sequence in `docs/WORKSTATION-VALIDATION.md`; never infer trust merely because a CLI binary is installed.
+
+## Completion rule
+
+Continue until the current task's acceptance criteria and required gates are satisfied. Preserve decisions, code, evidence, and documentation in GitHub as you go so future sessions do not depend on chat history.
