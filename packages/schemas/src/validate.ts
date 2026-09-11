@@ -12,18 +12,17 @@ type AjvInstance = {
 type AjvConstructor = new (options?: Record<string, unknown>) => AjvInstance;
 type AddFormats = (ajv: AjvInstance) => unknown;
 
-// Ajv and ajv-formats publish CommonJS-compatible entry points whose default
-// import shape varies under NodeNext/ESM. Resolve that boundary explicitly so
-// the rest of the package remains native ESM and strongly typed.
+// Use Ajv's 2020 constructor because the contract schema declares JSON Schema
+// draft 2020-12. Resolve the CommonJS/ESM boundary explicitly under NodeNext.
 const require = createRequire(import.meta.url);
-const loadedAjv = require('ajv') as unknown;
-const Ajv = ((loadedAjv as { default?: AjvConstructor }).default ?? loadedAjv) as AjvConstructor;
+const loadedAjv = require('ajv/dist/2020') as unknown;
+const Ajv2020 = ((loadedAjv as { default?: AjvConstructor }).default ?? loadedAjv) as AjvConstructor;
 const loadedFormats = require('ajv-formats') as unknown;
 const addFormats = ((loadedFormats as { default?: AddFormats }).default ?? loadedFormats) as AddFormats;
 
 const schemaPath = new URL('../schema/contracts.schema.json', import.meta.url);
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8')) as { $id: string };
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 ajv.addSchema(schema);
 const validators = new Map<ContractName, ValidateFunction>();
