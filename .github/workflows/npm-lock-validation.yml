@@ -1,0 +1,35 @@
+name: npm lockfile validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'packages/*/package.json'
+      - 'apps/*/package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify lockfile is reproducible
+        run: npm ci --ignore-scripts
+      - name: Verify package metadata did not drift
+        shell: bash
+        run: |
+          cp package-lock.json /tmp/package-lock.before.json
+          npm install --package-lock-only --ignore-scripts
+          cmp --silent package-lock.json /tmp/package-lock.before.json || {
+            echo "::error::package-lock.json is out of date. Run npm install --package-lock-only --ignore-scripts and commit the result."
+            exit 1
+          }
