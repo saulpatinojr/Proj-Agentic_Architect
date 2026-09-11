@@ -24,7 +24,7 @@ class FakeWorktrees {
 }
 
 describe('run execution', () => {
-  it('executes an R1 run with fake paid-client adapters and deterministic gates', async () => {
+  it('executes an R1 run with fake paid-client adapters and deterministic gates after explicit trust', async () => {
     const temp = mkdtempSync(join(tmpdir(), 'cc-run-test-'));
     try {
       const adapters = new Map<string, HarnessAdapter>([['codex', new FakeAdapter('codex', 'openai')], ['claude', new FakeAdapter('claude', 'anthropic')]]);
@@ -37,12 +37,29 @@ describe('run execution', () => {
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
 
-  it('stops external execution when workstation trust has not been established', async () => {
+  it('stops external execution when workstation trust is explicitly denied', async () => {
     const temp = mkdtempSync(join(tmpdir(), 'cc-run-test-'));
     try {
       const adapters = new Map<string, HarnessAdapter>([['codex', new FakeAdapter('codex', 'openai')], ['claude', new FakeAdapter('claude', 'anthropic')]]);
       const outcome = await executeTask(resolve('.'), createTask('blocked R1 run', 'R1', resolve('.')), { execute: true, adapters, store: new RunStore(temp), worktrees: new FakeWorktrees() as unknown as WorktreeManager, gateExecutor: () => ({ status: 0, stdout: 'ok', stderr: '' }), isHarnessTrusted: () => false });
       expect(outcome.manifest.results[0]?.status).toBe('blocked');
+      expect(outcome.manifest.mergeDecision?.decision).toBe('changes_required');
+    } finally { rmSync(temp, { recursive: true, force: true }); }
+  });
+
+  it('fails closed when no workstation trust callback is supplied', async () => {
+    const temp = mkdtempSync(join(tmpdir(), 'cc-run-test-'));
+    try {
+      const adapters = new Map<string, HarnessAdapter>([['codex', new FakeAdapter('codex', 'openai')], ['claude', new FakeAdapter('claude', 'anthropic')]]);
+      const outcome = await executeTask(resolve('.'), createTask('untrusted by default R1 run', 'R1', resolve('.')), {
+        execute: true,
+        adapters,
+        store: new RunStore(temp),
+        worktrees: new FakeWorktrees() as unknown as WorktreeManager,
+        gateExecutor: () => ({ status: 0, stdout: 'ok', stderr: '' }),
+      });
+      expect(outcome.manifest.results[0]?.status).toBe('blocked');
+      expect(outcome.manifest.results[0]?.blockers[0]).toContain('has not passed Code Conductor workstation');
       expect(outcome.manifest.mergeDecision?.decision).toBe('changes_required');
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
