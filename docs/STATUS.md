@@ -10,7 +10,7 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 ## Verified in repository/CI
 
 - TypeScript workspace builds successfully on Node 24.
-- Current unit suite passes: **32 tests across 11 test files**.
+- Current unit suite passes: **35 tests across 12 test files**.
 - `cc validate` passes repository policy/configuration validation.
 - `package-lock.json` is committed and validated with `npm ci`/lockfile-drift checks.
 - Vitest 5.0.0 is installed and the current npm dependency graph reports **0 vulnerabilities**.
@@ -19,12 +19,15 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 - APM audit passes against `apm-policy.yml`.
 - Canonical APM agent/skill sources project to Copilot, Claude, Codex, Kiro, and Agent Skills targets.
 - Task planning, structured result contracts, risk/policy checks, deterministic gates, run persistence, bounded retries, and modifying worktree support are implemented.
+- Planner assignments project configured role capabilities into authority labels, including validation, disagreement resolution, merge recommendation, approval, and merge authority; the finalizer is explicitly tested to recommend merge without receiving approval or merge authority.
 - CLI commands exist for repository validation, doctor, planning, dry-run/execution, harness smoke tests, MCP selection, APM audit, and GitHub gate inspection.
+- GitHub gate helpers preserve CLI spawn errors so missing or non-runnable `gh` installations are diagnosable rather than reported with empty stderr.
 - A thin VS Code extension foundation exists for Team, Runs, Gates, Connections, Packs, and Usage.
 - GitHub Actions used by repository workflows are pinned to reviewed immutable commit SHAs.
 - Executable Ansible/Azure MCP npm package references are pinned rather than resolved through floating `latest` tags.
 - Local run/evidence directories/files, workstation trust state, and modifying-agent worktree directories use owner-only permissions on POSIX systems and are covered by regression tests.
 - Gate glob matching has explicit recursive-glob coverage, including detection below the former directory-depth cutoff.
+- Gate-profile discovery scans the repository tree lazily only when a profile actually declares `any_glob` detection.
 - Advisory deterministic gates retain their non-blocking semantics during final readiness evaluation.
 - GitHub MCP selection is no longer enabled for non-git directories solely by default profile seeding.
 - Missing workstation trust continues to fail closed and is explicitly covered by a runtime regression test.
@@ -37,7 +40,7 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 - Foundation work is consolidated in PR #1 rather than split across duplicate PRs.
 - Only `main` and the active foundation branch exist remotely at this checkpoint.
 - Repository-level branch protection/ruleset enforcement and automatic merged-branch deletion remain tracked in issue #3 because the current connector does not expose those administration mutations.
-- The active foundation branch should be deleted after PR #1 is merged and the resulting `main` commit is verified.
+- The active foundation branch should be deleted after PR #1 is merged and the resulting `main` commit is verified. If GitHub does not auto-delete it, it must at minimum be fast-forwarded to the verified `main` commit so no stale/unmerged origin work remains.
 
 ## Not yet release-verified
 
@@ -55,7 +58,7 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 
 Once the cleaned foundation is on `main`:
 
-1. verify the resulting `main` checks and remove the merged bootstrap branch;
+1. verify the resulting `main` checks and remove or fully align the merged bootstrap branch;
 2. run `docs/WORKSTATION-VALIDATION.md` on the VS Code execution workstation;
 3. smoke-test Codex, Claude Code, and Kiro in read mode, then isolated modify mode;
 4. run the first real R1 dogfood task through Code Conductor;
