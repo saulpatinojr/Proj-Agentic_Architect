@@ -1,0 +1,82 @@
+version: 1
+
+roles:
+  conductor:
+    stance: neutral
+    may_modify_code: false
+    may_review: true
+    may_approve: false
+    may_merge: false
+
+  spec_lead:
+    preferred_harnesses: [kiro]
+    stance: constructive
+    may_modify_code: false
+    may_review: true
+    may_approve: false
+    may_merge: false
+
+  researcher:
+    preferred_harnesses: [perplexity]
+    stance: neutral
+    may_modify_code: false
+    may_review: false
+    may_approve: false
+    may_merge: false
+
+  builder:
+    preferred_harnesses: [codex, claude, kiro, antigravity]
+    stance: constructive
+    may_modify_code: true
+    may_review: false
+    may_approve: false
+    may_merge: false
+
+  challenger:
+    stance: critical
+    may_modify_code: false
+    may_review: true
+    may_approve: false
+    may_merge: false
+    constraints:
+      different_provider_from_builder_when_risk_at_least: R2
+
+  security_reviewer:
+    stance: critical
+    may_modify_code: false
+    may_review: true
+    may_block: true
+    may_approve: false
+    may_merge: false
+
+  validator:
+    stance: neutral
+    may_modify_code: false
+    may_execute_validation: true
+    may_approve: false
+    may_merge: false
+
+  github_gatekeeper:
+    preferred_harnesses: [copilot-github]
+    stance: critical
+    may_modify_code: false
+    may_review: true
+    may_block: true
+    may_approve: false
+    may_merge: false
+
+  arbiter:
+    stance: neutral
+    may_modify_code: false
+    may_review: true
+    may_resolve_disagreement: true
+    may_approve: false
+    may_merge: false
+
+  finalizer:
+    stance: neutral
+    may_modify_code: false
+    may_review: true
+    may_recommend_merge: true
+    may_approve: false
+    may_merge: false
