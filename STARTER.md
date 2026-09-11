@@ -21,15 +21,16 @@ The repository foundation is implemented rather than architecture-only:
 
 - TypeScript workspace and structured contracts exist;
 - task state/risk/policy planning and runtime execution foundations exist;
-- bounded retry, structured result parsing, private run/evidence persistence, deterministic gates, and worktree handling exist;
+- bounded retry, schema-validated structured result parsing, private run/evidence persistence, deterministic gates, and worktree handling exist;
 - APM 0.30.0 is pinned, the lockfile and materialized projections are committed, and APM audit passes;
 - `package-lock.json` is committed and CI uses reproducible installs;
 - Vitest 5 is installed and the current npm dependency graph is audit-clean;
 - initial Codex, Claude, Kiro, Antigravity, GitHub, APM, MCP, and workstation adapter boundaries exist;
 - `cc validate`, `doctor`, `plan`, `run`, `harness-smoke`, MCP/APM, and GitHub-gate command paths exist;
 - the VS Code extension foundation exposes Team, Runs, Gates, Connections, Packs, and Usage;
-- repository CI currently passes;
-- the first GitHub Copilot Gatekeeper review has been exercised and its concrete findings have been addressed.
+- repository CI, APM audit, npm lockfile validation, and secret scanning are green at the cleanup checkpoint;
+- multiple GitHub Copilot Gatekeeper review rounds have been exercised and their concrete findings have been addressed with targeted regression coverage;
+- Phase 1 issue #2 is completed; remaining live release-readiness work is tracked in issue #4.
 
 The authoritative current status is `docs/STATUS.md`.
 
@@ -37,7 +38,7 @@ The authoritative current status is `docs/STATUS.md`.
 
 Do not create more architecture scaffolding before proving the existing implementation.
 
-1. Confirm the working branch starts from current `main` and review `docs/STATUS.md` for the next milestone.
+1. Start from current `main` and review `docs/STATUS.md` plus open issues before creating a branch.
 2. Follow `docs/WORKSTATION-VALIDATION.md` on the actual VS Code execution workstation.
 3. Validate official subscription authentication and read/modify smoke boundaries for Codex, Claude Code, and Kiro.
 4. Keep Antigravity unattended execution blocked until its permission/sandbox decision is superseded with evidence.
@@ -74,6 +75,14 @@ apm audit --ci --policy ./apm-policy.yml --no-fail-fast
 ```
 
 For live clients, use the smoke-test sequence in `docs/WORKSTATION-VALIDATION.md`; never infer trust merely because a CLI binary is installed.
+
+## Branch and file hygiene
+
+- Do not work directly on `main` for normal feature changes.
+- Remove merged/superseded remote and local branches after confirming their commits are preserved on `main`.
+- Do not commit runtime state, credentials, local worktrees, build output, or package caches.
+- Canonical reusable agent/skill content lives under `.apm/`; generated target projections are committed only when they match the APM lock/materialization state.
+- Keep `README.md`, `STARTER.md`, `docs/STATUS.md`, `CHANGELOG.md`, and relevant ADR/runbooks synchronized with material behavior changes.
 
 ## Completion rule
 
