@@ -9,6 +9,7 @@ describe('task planner', () => {
     expect(plan.assignments.map((a) => a.role)).toEqual(['builder', 'reviewer', 'validator']);
     expect(plan.assignments.find((a) => a.role === 'builder')?.authority).toContain('modify_worktree');
     expect(plan.assignments.find((a) => a.role === 'reviewer')?.authority).not.toContain('modify_worktree');
+    expect(plan.assignments.find((a) => a.role === 'validator')?.authority).toContain('execute_validation');
   });
 
   it('uses a different provider for the R2 challenger when possible', () => {
@@ -19,5 +20,15 @@ describe('task planner', () => {
     expect(builder).toBeDefined();
     expect(challenger).toBeDefined();
     expect(challenger?.provider).not.toBe(builder?.provider);
+  });
+
+  it('projects finalizer merge recommendation authority without approval or merge authority', () => {
+    const task = createTask('Prepare a high-impact change for human review', 'R3', resolve('.'));
+    const plan = planTask(resolve('.'), task, { availableHarnesses: new Set(['codex', 'claude', 'kiro']) });
+    const finalizer = plan.assignments.find((a) => a.role === 'finalizer');
+    expect(finalizer).toBeDefined();
+    expect(finalizer?.authority).toContain('recommend_merge');
+    expect(finalizer?.authority).not.toContain('approve');
+    expect(finalizer?.authority).not.toContain('merge');
   });
 });
