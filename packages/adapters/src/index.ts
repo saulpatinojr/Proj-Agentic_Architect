@@ -27,6 +27,7 @@ export interface HarnessAdapter {
   provider: string;
   command: string | null;
   available(): boolean;
+  version(): string | undefined;
   execute(request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome>;
 }
 
@@ -35,19 +36,24 @@ function commandExists(command: string): boolean {
   return spawnSync(probe, [command], { stdio: 'ignore' }).status === 0;
 }
 
+function commandVersion(command: string): string | undefined {
+  const result = spawnSync(command, ['--version'], { encoding: 'utf8', shell: false, timeout: 15000 });
+  return result.status === 0 ? (result.stdout || result.stderr || '').trim().split(/\r?\n/)[0] : undefined;
+}
+
 function argsFor(id: string, request: HarnessExecutionRequest): string[] {
   const writeAllowed = request.assignment.authority.includes('modify_worktree');
   switch (id) {
     case 'codex':
-      return ['exec', '--json', '--cd', request.cwd, request.prompt];
+      return ['exec', '--json', '--ask-for-approval', 'never', '--sandbox', writeAllowed ? 'workspace-write' : 'read-only', '--cd', request.cwd, request.prompt];
     case 'claude':
-      return ['-p', '--output-format', 'json', request.prompt];
+      return writeAllowed
+        ? ['-p', '--output-format', 'json', '--permission-mode', 'acceptEdits', '--max-turns', '40', request.prompt]
+        : ['-p', '--output-format', 'json', '--permission-mode', 'plan', '--max-turns', '20', request.prompt];
     case 'kiro': {
       const trusted = writeAllowed ? 'read,grep,write,shell' : 'read,grep';
       return ['chat', '--no-interactive', '--output-format', 'stream-json', `--trust-tools=${trusted}`, request.prompt];
     }
-    case 'antigravity':
-      return ['-p', request.prompt];
     default:
       return [request.prompt];
   }
@@ -55,21 +61,13 @@ function argsFor(id: string, request: HarnessExecutionRequest): string[] {
 
 class SubprocessAdapter implements HarnessAdapter {
   constructor(public readonly id: string, public readonly provider: string, public readonly command: string) {}
-
-  available(): boolean {
-    return commandExists(this.command);
-  }
-
+  available(): boolean { return commandExists(this.command); }
+  version(): string | undefined { return this.available() ? commandVersion(this.command) : undefined; }
   execute(request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome> {
     const args = argsFor(this.id, request);
     const startedAt = new Date().toISOString();
     return new Promise((resolve, reject) => {
-      const child = spawn(this.command, args, {
-        cwd: request.cwd,
-        env: process.env,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: false,
-      });
+      const child = spawn(this.command, args, { cwd: request.cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'], shell: false });
       let stdout = '';
       let stderr = '';
       let timedOut = false;
@@ -78,24 +76,10 @@ class SubprocessAdapter implements HarnessAdapter {
       child.stdout.on('data', (chunk: string) => { stdout += chunk; });
       child.stderr.on('data', (chunk: string) => { stderr += chunk; });
       child.on('error', reject);
-      const timer = setTimeout(() => {
-        timedOut = true;
-        child.kill('SIGTERM');
-      }, request.timeoutMs);
+      const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, request.timeoutMs);
       child.on('close', (exitCode, signal) => {
         clearTimeout(timer);
-        resolve({
-          harness: this.id,
-          command: this.command,
-          args,
-          exitCode,
-          signal,
-          stdout,
-          stderr,
-          startedAt,
-          finishedAt: new Date().toISOString(),
-          timedOut,
-        });
+        resolve({ harness: this.id, command: this.command, args, exitCode, signal, stdout, stderr, startedAt, finishedAt: new Date().toISOString(), timedOut });
       });
     });
   }
@@ -103,11 +87,10 @@ class SubprocessAdapter implements HarnessAdapter {
 
 class UnsupportedAdapter implements HarnessAdapter {
   command = null;
-  constructor(public readonly id: string, public readonly provider: string) {}
+  constructor(public readonly id: string, public readonly provider: string, private readonly reason: string) {}
   available(): boolean { return false; }
-  async execute(_request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome> {
-    throw new Error(`Harness ${this.id} requires a platform/manual integration and cannot run through the generic subprocess adapter.`);
-  }
+  version(): string | undefined { return undefined; }
+  async execute(_request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome> { throw new Error(this.reason); }
 }
 
 export function createBuiltinAdapters(): Map<string, HarnessAdapter> {
@@ -115,9 +98,9 @@ export function createBuiltinAdapters(): Map<string, HarnessAdapter> {
     ['codex', new SubprocessAdapter('codex', 'openai', 'codex')],
     ['claude', new SubprocessAdapter('claude', 'anthropic', 'claude')],
     ['kiro', new SubprocessAdapter('kiro', 'aws', 'kiro-cli')],
-    ['antigravity', new SubprocessAdapter('antigravity', 'google', 'agy')],
-    ['copilot-github', new UnsupportedAdapter('copilot-github', 'github')],
-    ['perplexity', new UnsupportedAdapter('perplexity', 'perplexity')],
-    ['internal-validator', new UnsupportedAdapter('internal-validator', 'code-conductor')],
+    ['antigravity', new UnsupportedAdapter('antigravity', 'google', 'Antigravity headless automation is disabled pending upstream permission/sandbox reliability and local validation; use the interactive/native Google lane.')],
+    ['copilot-github', new UnsupportedAdapter('copilot-github', 'github', 'GitHub Copilot Gatekeeper is a GitHub platform integration, not a generic subprocess worker.')],
+    ['perplexity', new UnsupportedAdapter('perplexity', 'perplexity', 'Perplexity Pro subscription mode is human-in-the-loop; automated official MCP/API mode is separately billed and disabled by default.')],
+    ['internal-validator', new UnsupportedAdapter('internal-validator', 'code-conductor', 'Internal validation is executed by the deterministic gate runner.')],
   ]);
 }

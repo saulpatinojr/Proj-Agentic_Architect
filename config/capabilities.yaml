@@ -12,6 +12,7 @@ harnesses:
     subscription: copilot-pro-plus
     command_candidates: [gh]
     strengths: [github_native_pr_review, github_repository_context, github_actions_context, pull_request_quality_gate]
+    automation: platform
     cli_preferred: false
 
   claude:
@@ -20,10 +21,12 @@ harnesses:
     subscription: claude-max
     command_candidates: [claude]
     strengths: [implementation, refactoring, codebase_reasoning, independent_review]
+    automation: cli_headless
     cli_preferred: true
-    headless:
-      command: claude
-      arguments: [-p, --output-format, json]
+    safety:
+      read_mode: permission-mode-plan
+      modify_mode: permission-mode-acceptEdits-plus-worktree
+      workstation_smoke_required: true
 
   codex:
     provider: openai
@@ -31,10 +34,13 @@ harnesses:
     subscription: chatgpt-business
     command_candidates: [codex]
     strengths: [implementation, debugging, testing, repository_work]
+    automation: cli_headless
     cli_preferred: true
-    headless:
-      command: codex
-      arguments: [exec, --json]
+    safety:
+      read_mode: sandbox-read-only-approval-never
+      modify_mode: sandbox-workspace-write-approval-never-plus-worktree
+      workstation_smoke_required: true
+      note: Managed/user Codex configuration can alter effective sandbox behavior; smoke validation is required on the installed version and OS.
 
   kiro:
     provider: aws
@@ -42,10 +48,13 @@ harnesses:
     subscription: kiro-pro
     command_candidates: [kiro-cli]
     strengths: [specification, requirements, design_planning, implementation_planning, headless_worker]
+    automation: cli_headless
     cli_preferred: true
+    safety:
+      read_mode: trust-read-grep
+      modify_mode: trust-read-grep-write-shell-plus-worktree
+      workstation_smoke_required: true
     headless:
-      command: kiro-cli
-      arguments: [chat, --no-interactive, --output-format, stream-json]
       api_key_variable: KIRO_API_KEY
       subscription_credits: true
 
@@ -55,16 +64,18 @@ harnesses:
     subscription: google-ai-pro
     command_candidates: [agy]
     strengths: [google_native_agent_work, gcp_specialization, independent_implementation, independent_review]
-    cli_preferred: true
-    headless:
-      command: agy
-      prompt_argument: -p
+    automation: interactive_only_pending_upstream_safety
+    cli_preferred: false
+    safety:
+      headless_execution_enabled: false
+      reason: Current headless permission/sandbox behavior has unresolved upstream defects; do not use as an unattended worker until fixed and revalidated.
 
   perplexity:
     provider: perplexity
     auth_boundary: perplexity-pro-client
     subscription: perplexity-pro
     strengths: [web_research, source_discovery, research_synthesis]
+    automation: manual_subscription_or_paid_mcp
     cli_preferred: false
     automation_modes:
       subscription_manual:
@@ -79,6 +90,7 @@ harnesses:
     subscription: none
     command_candidates: []
     strengths: [deterministic_validation]
+    automation: local
     cli_preferred: true
 
 routing_invariants:
@@ -88,3 +100,4 @@ routing_invariants:
   - keep_harness_specific_behavior_out_of_core
   - require_independent_review_for_r2_or_higher
   - require_human_approval_for_r3_or_higher
+  - require_workstation_smoke_before_external_headless_execution

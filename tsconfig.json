@@ -6,6 +6,7 @@
     { "path": "./packages/policy" },
     { "path": "./packages/evidence" },
     { "path": "./packages/git" },
+    { "path": "./packages/workstation" },
     { "path": "./packages/adapters" },
     { "path": "./packages/gates" },
     { "path": "./packages/runtime" },
