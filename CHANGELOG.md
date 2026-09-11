@@ -16,7 +16,7 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - Thin VS Code extension foundation with Team, Runs, Gates, Connections, Packs, and Usage views.
 - CI for TypeScript validation, tests, repository-policy validation, APM audit, dependency audit, and lockfile consistency.
 - Repository governance documentation, contribution/security/review policies, templates, CODEOWNERS, Dependabot, EditorConfig, and Git attributes.
-- Regression coverage for deep recursive gate-profile discovery, owner-only worktree directories, invalid structured agent-result payloads, configured finalizer/validator authority projection, missing GitHub CLI diagnostics, and no-scan exact-file gate detection.
+- Regression coverage for deep recursive gate-profile discovery, owner-only worktree directories, invalid structured agent-result payloads, configured finalizer/validator authority projection, missing GitHub/APM/Git CLI diagnostics, ref-safe task/agent identifiers, and no-scan exact-file gate detection.
 
 ### Changed
 
@@ -30,7 +30,9 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - Corrected MCP profile detection so GitHub tooling is selected only for repositories with a Git marker.
 - Preserved advisory deterministic-gate semantics through final readiness evaluation.
 - Planner assignments now carry all configured role authorities, including execute-validation, disagreement-resolution, merge-recommendation, approval, and merge capabilities while retaining separation-of-duties policy.
-- GitHub Gatekeeper subprocess diagnostics now include spawn errors when `gh` is missing or cannot execute.
+- Planner availability and billing behavior are derived from harness automation configuration rather than hard-coded harness IDs.
+- GitHub and APM subprocess diagnostics include spawn errors when their official CLIs are missing or cannot execute; Git helper startup failures are likewise explicit.
+- Git worktree branch components are sanitized against invalid ref forms including repeated dots, leading/trailing dots, and `.lock` suffixes.
 - Reconciled Phase 1 tracking: issue #2 is complete and live workstation/R1/R2 validation is tracked in issue #4.
 
 ### Security
