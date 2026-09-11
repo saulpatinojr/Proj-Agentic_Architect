@@ -22,6 +22,7 @@ This directory contains the maintained design, operating, and validation documen
 - [`WORKSTATION-VALIDATION.md`](WORKSTATION-VALIDATION.md) — official-client authentication and harness smoke validation.
 - [`AUTHENTICATION.md`](AUTHENTICATION.md) — authentication, credential, and subscription/API billing boundaries.
 - [`MCP-CATALOG.md`](MCP-CATALOG.md) — approved MCP/reference strategy and tool-plane rules.
+- [`REPOSITORY-GOVERNANCE.md`](REPOSITORY-GOVERNANCE.md) — branch, PR, required-check, and repository-setting baseline.
 
 ## Decisions
 
@@ -30,9 +31,10 @@ This directory contains the maintained design, operating, and validation documen
 
 ## Repository governance
 
-Repository-wide contributor documentation lives at the root or under `.github/`:
+Repository-wide contributor/review documentation lives at the root or under `.github/`:
 
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md)
+- [`../REVIEW.md`](../REVIEW.md)
 - [`../SECURITY.md`](../SECURITY.md)
 - [`../CHANGELOG.md`](../CHANGELOG.md)
 - [`../.github/PULL_REQUEST_TEMPLATE.md`](../.github/PULL_REQUEST_TEMPLATE.md)
