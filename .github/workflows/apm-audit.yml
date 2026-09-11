@@ -30,5 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: microsoft/apm-action@v1
+        with:
+          apm-version: '0.30.0'
       - name: APM policy, integrity, and drift audit
         run: apm audit --ci --policy ./apm-policy.yml --no-fail-fast
