@@ -23,6 +23,8 @@ type RoleConfig = {
   may_merge?: boolean;
   may_block?: boolean;
   may_execute_validation?: boolean;
+  may_resolve_disagreement?: boolean;
+  may_recommend_merge?: boolean;
 };
 
 type RolesConfig = { version: number; roles: Record<string, RoleConfig> };
