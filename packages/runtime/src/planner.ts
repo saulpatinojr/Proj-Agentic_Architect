@@ -4,7 +4,18 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import type { AgentAssignment, RiskClass, Stance, TaskEnvelope } from '@code-conductor/schemas';
 
-interface RoleDefinition { stance: Stance; preferred_harnesses?: string[]; may_modify_code?: boolean; may_review?: boolean; may_block?: boolean; may_execute_validation?: boolean }
+interface RoleDefinition {
+  stance: Stance;
+  preferred_harnesses?: string[];
+  may_modify_code?: boolean;
+  may_review?: boolean;
+  may_block?: boolean;
+  may_execute_validation?: boolean;
+  may_resolve_disagreement?: boolean;
+  may_recommend_merge?: boolean;
+  may_approve?: boolean;
+  may_merge?: boolean;
+}
 interface RolesDocument { roles: Record<string, RoleDefinition> }
 interface RiskDefinition { required_roles?: string[]; inherits?: RiskClass }
 interface RiskDocument { risk_classes: Record<RiskClass, RiskDefinition> }
@@ -26,6 +37,10 @@ function authorityFor(role: RoleDefinition): string[] {
   if (role.may_review) authority.push('review');
   if (role.may_block) authority.push('block');
   if (role.may_execute_validation) authority.push('execute_validation');
+  if (role.may_resolve_disagreement) authority.push('resolve_disagreement');
+  if (role.may_recommend_merge) authority.push('recommend_merge');
+  if (role.may_approve) authority.push('approve');
+  if (role.may_merge) authority.push('merge');
   return authority;
 }
 
