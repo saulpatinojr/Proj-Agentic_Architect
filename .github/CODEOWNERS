@@ -1,0 +1,17 @@
+# Default ownership
+* @saulpatinojr
+
+# Governance and security-sensitive boundaries
+/AGENTS.md @saulpatinojr
+/SECURITY.md @saulpatinojr
+/docs/DECISIONS.md @saulpatinojr
+/docs/adr/ @saulpatinojr
+/apm.yml @saulpatinojr
+/apm.lock.yaml @saulpatinojr
+/apm-policy.yml @saulpatinojr
+/.apm/ @saulpatinojr
+/config/ @saulpatinojr
+/.github/workflows/ @saulpatinojr
+/packages/policy/ @saulpatinojr
+/packages/workstation/ @saulpatinojr
+/packages/github-gate/ @saulpatinojr
