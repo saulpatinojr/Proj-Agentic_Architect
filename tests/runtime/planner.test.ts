@@ -12,7 +12,7 @@ describe('task planner', () => {
     expect(plan.assignments.find((a) => a.role === 'validator')?.authority).toContain('execute_validation');
   });
 
-  it('uses a different provider for the R2 challenger when possible', () => {
+  it('uses a different provider for the R2 challenger when required by role policy', () => {
     const task = createTask('Change several components', 'R2', resolve('.'));
     const plan = planTask(resolve('.'), task, { availableHarnesses: new Set(['codex', 'claude']) });
     const builder = plan.assignments.find((a) => a.role === 'builder');
@@ -20,6 +20,11 @@ describe('task planner', () => {
     expect(builder).toBeDefined();
     expect(challenger).toBeDefined();
     expect(challenger?.provider).not.toBe(builder?.provider);
+  });
+
+  it('fails closed when the configured R2 challenger independence constraint cannot be satisfied', () => {
+    const task = createTask('Change several components with only one provider available', 'R2', resolve('.'));
+    expect(() => planTask(resolve('.'), task, { availableHarnesses: new Set(['codex']) })).toThrow(/No eligible harness is available for role challenger/);
   });
 
   it('projects finalizer merge recommendation authority without approval or merge authority', () => {
