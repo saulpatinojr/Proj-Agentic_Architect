@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { resolve } from 'node:path';
-import { blockingGateFailure, detectGateProfiles, runGates } from '../../packages/gates/src/index.js';
+import { blockingGateFailure, detectGateProfiles, globMatch, runGates } from '../../packages/gates/src/index.js';
 
 describe('deterministic gates', () => {
   it('detects the Code Conductor profile', () => {
     expect(detectGateProfiles(resolve('.'))).toContain('code-conductor');
+  });
+
+  it('matches recursive globs without rewriting generated regex fragments', () => {
+    expect(globMatch('main.tf', '**/*.tf')).toBe(true);
+    expect(globMatch('modules/network/main.tf', '**/*.tf')).toBe(true);
+    expect(globMatch('modules/network/main.ts', '**/*.tf')).toBe(false);
+    expect(globMatch('roles/web/tasks/main.yml', 'roles/**/tasks/*.yml')).toBe(true);
+    expect(globMatch('src/index.ts', 'src/*.ts')).toBe(true);
+    expect(globMatch('src/nested/index.ts', 'src/*.ts')).toBe(false);
   });
 
   it('can execute gates through an injected deterministic executor', () => {
