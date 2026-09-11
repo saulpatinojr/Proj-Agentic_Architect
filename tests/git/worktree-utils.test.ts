@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { WorktreeManager, gitChangedFiles, isSensitiveRepositoryPath } from '../../packages/git/src/index.js';
+import { WorktreeManager, gitChangedFiles, isSensitiveRepositoryPath, resolveRepositoryRoot, safeGitRefSegment } from '../../packages/git/src/index.js';
 
 describe('git helpers', () => {
   it('can inspect the current repository without mutating it', () => {
@@ -16,6 +16,24 @@ describe('git helpers', () => {
     expect(isSensitiveRepositoryPath('certs/client.pem')).toBe(true);
     expect(isSensitiveRepositoryPath('.env.example')).toBe(false);
     expect(isSensitiveRepositoryPath('src/index.ts')).toBe(false);
+  });
+
+  it('sanitizes externally supplied task and agent IDs into valid ref components', () => {
+    expect(safeGitRefSegment('../release..candidate.lock')).toBe('release-candidate-lock');
+    expect(safeGitRefSegment('.lock')).toBe('lock');
+    expect(safeGitRefSegment('...')).toBe('agent');
+    expect(safeGitRefSegment('feature@{bad}')).not.toMatch(/\.\.|@\{|\.lock$/i);
+  });
+
+  it('preserves spawn diagnostics when Git cannot be found', () => {
+    const originalPath = process.env.PATH;
+    process.env.PATH = '';
+    try {
+      expect(() => resolveRepositoryRoot('.')).toThrow(/ENOENT|failed to start|spawnSync git/i);
+    } finally {
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+    }
   });
 
   it('creates modifying worktree directories as owner-only on POSIX systems', () => {
