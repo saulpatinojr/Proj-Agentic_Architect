@@ -1,8 +1,8 @@
 import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { RunStore } from '../../packages/evidence/src/index.js';
+import { RunStore, safeRunDirectoryName } from '../../packages/evidence/src/index.js';
 import type { RunManifest } from '../../packages/schemas/src/index.js';
 
 function mode(path: string): number {
@@ -50,5 +50,27 @@ describe('run evidence store', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it('keeps relative and dotted run IDs inside the evidence store root', () => {
+    const root = mkdtempSync(join(tmpdir(), 'cc-evidence-path-'));
+    try {
+      const storeRoot = join(root, 'runs');
+      const store = new RunStore(storeRoot);
+      for (const runId of ['..', '../outside', '.', 'a/../../outside']) {
+        const target = resolve(store.runDirectory(runId));
+        const rel = relative(resolve(storeRoot), target);
+        expect(rel).not.toBe('');
+        expect(isAbsolute(rel)).toBe(false);
+        expect(rel === '..' || rel.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`)).toBe(false);
+        expect(safeRunDirectoryName(runId)).not.toMatch(/^\.{1,2}$/);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('adds a digest when unsafe run IDs normalize to similar names', () => {
+    expect(safeRunDirectoryName('../run')).not.toBe(safeRunDirectoryName('..\\run'));
   });
 });
