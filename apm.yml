@@ -1,0 +1,17 @@
+name: proj-agentic-architect
+version: 0.1.0
+
+targets:
+  - copilot
+  - claude
+  - codex
+  - kiro
+  - antigravity
+  - agent-skills
+
+dependencies:
+  apm: []
+
+scripts:
+  doctor: "cc doctor"
+  validate: "cc validate"
