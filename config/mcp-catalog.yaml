@@ -45,23 +45,24 @@ servers:
     source: https://docs.ansible.com/projects/vscode-ansible/mcp/
     transport: stdio
     command: npx
-    args: [-y, '@ansible/ansible-mcp-server', --stdio]
+    args: [-y, '@ansible/ansible-mcp-server@26.6.0', --stdio]
     authentication: local-process
     default_access: read
     profiles: [ansible]
-    note: Deterministic ansible-lint and execution controls remain release authority while this MCP is technical preview.
+    note: Version pinned from the official npm package on 2026-09-11. Deterministic ansible-lint and execution controls remain release authority while this MCP is technical preview.
 
   azure:
     publisher: Microsoft
     official: true
-    maturity: ga
+    maturity: preview
     source: https://github.com/Azure/azure-mcp
     transport: stdio
     command: npx
-    args: [-y, '@azure/mcp@latest', server, start]
+    args: [-y, '@azure/mcp@3.0.0-beta.42', server, start]
     authentication: entra-via-official-azure-tools
     default_access: read
     profiles: [azure]
+    note: Executable npm version pinned on 2026-09-11 rather than resolving @latest at runtime; update only through a reviewed catalog change.
 
   aws:
     publisher: AWS
