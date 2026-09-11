@@ -18,6 +18,9 @@ dependencies:
 
 includes: auto
 
+compilation:
+  source_attribution: true
+
 scripts:
   doctor: "cc doctor"
   validate: "cc validate"
