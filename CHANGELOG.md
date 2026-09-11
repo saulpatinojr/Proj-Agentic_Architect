@@ -14,11 +14,22 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - APM 0.30.0 manifest, lockfile, policy, canonical agent/skill source, and materialized Copilot/Claude/Codex/Kiro/Agent Skills projections.
 - Official MCP catalog/configuration foundation.
 - Thin VS Code extension foundation with Team, Runs, Gates, Connections, Packs, and Usage views.
-- CI for TypeScript validation, tests, repository-policy validation, APM audit, and lockfile consistency.
-- Repository governance documentation, contribution/security policies, templates, and CODEOWNERS.
+- CI for TypeScript validation, tests, repository-policy validation, APM audit, dependency audit, and lockfile consistency.
+- Repository governance documentation, contribution/security/review policies, templates, CODEOWNERS, Dependabot, EditorConfig, and Git attributes.
+
+### Changed
+
+- Upgraded Vitest to 5.0.0 and refreshed the committed npm lockfile.
+- Standardized ongoing workflow names and removed temporary/bootstrap write-back workflows after their one-time use.
+- Pinned maintained GitHub Actions to reviewed immutable commit SHAs.
+- Pinned executable Ansible and Azure MCP npm package references instead of resolving floating versions at runtime.
+- Reworked deterministic gate glob matching and expanded recursive-pattern regression coverage.
 
 ### Security
 
 - Subscription-first billing policy and detection of API-key environment variables that could bypass intended billing paths.
 - Fail-closed structured agent-result parsing and explicit workstation trust before unattended CLI execution.
 - Human approval boundary for high-risk/destructive external operations.
+- Local run/evidence directories and files use owner-only permissions on POSIX systems.
+- Added high/critical dependency audit as a CI gate; the current dependency graph reports zero known npm vulnerabilities.
+- Acted on the first GitHub Copilot Gatekeeper review and added regression coverage for the resulting fixes and deliberate fail-closed trust behavior.
