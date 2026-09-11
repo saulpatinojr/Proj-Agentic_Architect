@@ -19,7 +19,7 @@
     ],
     "viewsContainers": {
       "activitybar": [
-        { "id": "codeConductor", "title": "Code Conductor", "icon": "$(organization)" }
+        { "id": "codeConductor", "title": "Code Conductor", "icon": "media/conductor.svg" }
       ]
     },
     "views": {

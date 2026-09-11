@@ -1,9 +1,25 @@
 import { readFileSync } from 'node:fs';
-import Ajv, { type ErrorObject, type ValidateFunction } from 'ajv';
-import addFormats from 'ajv-formats';
+import { createRequire } from 'node:module';
+import type { ErrorObject, ValidateFunction } from 'ajv';
 
 export type ContractName = 'TaskEnvelope' | 'AgentAssignment' | 'AgentResult' | 'Evidence' | 'Finding' | 'GateResult' | 'ReviewResult' | 'MergeDecision' | 'RunManifest';
 export interface ContractValidationResult { ok: boolean; errors: ErrorObject[] }
+
+type AjvInstance = {
+  addSchema(schema: object): void;
+  getSchema(ref: string): ValidateFunction | undefined;
+};
+type AjvConstructor = new (options?: Record<string, unknown>) => AjvInstance;
+type AddFormats = (ajv: AjvInstance) => unknown;
+
+// Ajv and ajv-formats publish CommonJS-compatible entry points whose default
+// import shape varies under NodeNext/ESM. Resolve that boundary explicitly so
+// the rest of the package remains native ESM and strongly typed.
+const require = createRequire(import.meta.url);
+const loadedAjv = require('ajv') as unknown;
+const Ajv = ((loadedAjv as { default?: AjvConstructor }).default ?? loadedAjv) as AjvConstructor;
+const loadedFormats = require('ajv-formats') as unknown;
+const addFormats = ((loadedFormats as { default?: AddFormats }).default ?? loadedFormats) as AddFormats;
 
 const schemaPath = new URL('../schema/contracts.schema.json', import.meta.url);
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8')) as { $id: string };
