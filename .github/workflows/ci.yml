@@ -24,10 +24,10 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: package.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        run: npm install --ignore-scripts
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
 
       - name: Typecheck and build
         run: npm run typecheck
@@ -38,11 +38,8 @@ jobs:
       - name: Validate repository policy
         run: node packages/cli/dist/index.js validate .
 
-      - name: APM lock audit status
+      - name: Verify lockfiles are present
         shell: bash
         run: |
-          if [[ -f apm.lock.yaml ]]; then
-            echo "apm.lock.yaml present; full APM audit is enabled by the dedicated APM gate once the CLI is pinned."
-          else
-            echo "::notice::apm.lock.yaml is intentionally pending local APM install/validation."
-          fi
+          test -f package-lock.json
+          test -f apm.lock.yaml
