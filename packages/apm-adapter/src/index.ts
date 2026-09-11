@@ -11,7 +11,8 @@ export interface ApmCommandResult {
 
 function run(root: string, args: string[]): ApmCommandResult {
   const result = spawnSync('apm', args, { cwd: root, encoding: 'utf8', shell: false });
-  return { ok: result.status === 0, status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
+  const stderr = [result.stderr || '', result.error?.message || ''].filter(Boolean).join('\n');
+  return { ok: result.status === 0, status: result.status, stdout: result.stdout || '', stderr };
 }
 
 export function apmTargets(root: string): ApmCommandResult {
