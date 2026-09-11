@@ -75,7 +75,8 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
     if (available) {
       candidates = candidates.filter((harness) => {
         const capability = capabilities.harnesses[harness];
-        return Boolean(capability) && (!requiresWorkstationClient(capability) || available.has(harness));
+        if (!capability) return false;
+        return !requiresWorkstationClient(capability) || available.has(harness);
       });
     }
     if (roleName === 'challenger' && builderProvider) {
