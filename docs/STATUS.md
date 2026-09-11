@@ -5,15 +5,15 @@
 
 ## Current state
 
-The repository has moved beyond architecture-only scaffolding. The foundational runtime, policy, packaging, Git, GitHub, MCP, workstation, and VS Code components exist and are validated in CI. Repository documentation/governance has been standardized, two GitHub Copilot Gatekeeper review rounds have been acted on, and the dependency audit is clean. The remaining release work is live workstation/provider validation, end-to-end multi-agent dogfooding, and final release readiness.
+The repository has moved beyond architecture-only scaffolding. The foundational runtime, policy, packaging, Git, GitHub, MCP, workstation, and VS Code components exist and are validated in CI. Repository documentation/governance has been standardized, multiple GitHub Copilot Gatekeeper review rounds have been acted on, and the dependency audit is clean. The remaining release work is live workstation/provider validation, end-to-end multi-agent dogfooding, and final release readiness tracked in issue #4.
 
 ## Verified in repository/CI
 
 - TypeScript workspace builds successfully on Node 24.
-- Current unit suite passes: **27 tests across 11 test files**.
+- Current unit suite passes: **32 tests across 11 test files**.
 - `cc validate` passes repository policy/configuration validation.
 - `package-lock.json` is committed and validated with `npm ci`/lockfile-drift checks.
-- Vitest was upgraded to 5.0.0 and the current npm dependency graph reports **0 vulnerabilities**.
+- Vitest 5.0.0 is installed and the current npm dependency graph reports **0 vulnerabilities**.
 - APM 0.30.0 is pinned for compatibility-sensitive CI operations.
 - `apm.lock.yaml` and generated harness projections are committed.
 - APM audit passes against `apm-policy.yml`.
@@ -23,11 +23,21 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 - A thin VS Code extension foundation exists for Team, Runs, Gates, Connections, Packs, and Usage.
 - GitHub Actions used by repository workflows are pinned to reviewed immutable commit SHAs.
 - Executable Ansible/Azure MCP npm package references are pinned rather than resolved through floating `latest` tags.
-- Local run/evidence directories/files and workstation trust state use owner-only permissions on POSIX systems and are covered by regression tests.
-- Gate glob matching has explicit recursive-glob regression coverage.
+- Local run/evidence directories/files, workstation trust state, and modifying-agent worktree directories use owner-only permissions on POSIX systems and are covered by regression tests.
+- Gate glob matching has explicit recursive-glob coverage, including detection below the former directory-depth cutoff.
 - Advisory deterministic gates retain their non-blocking semantics during final readiness evaluation.
 - GitHub MCP selection is no longer enabled for non-git directories solely by default profile seeding.
 - Missing workstation trust continues to fail closed and is explicitly covered by a runtime regression test.
+- Structured `AgentResult` payloads are validated against the canonical schema before acceptance; invalid status/recommendation/nested collection values fail closed.
+- GitGuardian reported no secrets in the foundation PR at the latest cleanup checkpoint.
+
+## Repository cleanup state
+
+- Phase 1 issue #2 is closed as completed; live workstation and R1/R2 validation moved to issue #4.
+- Foundation work is consolidated in PR #1 rather than split across duplicate PRs.
+- Only `main` and the active foundation branch exist remotely at this checkpoint.
+- Repository-level branch protection/ruleset enforcement and automatic merged-branch deletion remain tracked in issue #3 because the current connector does not expose those administration mutations.
+- The active foundation branch should be deleted after PR #1 is merged and the resulting `main` commit is verified.
 
 ## Not yet release-verified
 
@@ -36,22 +46,23 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 - Kiro Pro headless subscription-credit behavior on the target workstation.
 - Authenticated official MCP behavior for real project profiles before write authority is granted.
 - A complete real R1/R2 task that spans independent builder/reviewer or challenger roles, deterministic validation, preserved worktree changes, GitHub PR checks, structured evidence, and final readiness.
-- GitHub Copilot's first-party review has been exercised repeatedly on this foundation PR; the first complete Code Conductor-managed dogfood PR remains part of release validation.
+- GitHub Copilot's first-party review has been exercised repeatedly on the foundation PR; the first complete Code Conductor-managed dogfood PR remains part of release validation.
 - VS Code extension installation/activation and interaction testing on the target workstation.
 - Google Antigravity unattended execution remains intentionally disabled pending permission/sandbox revalidation.
 - Perplexity Pro remains human-in-the-loop unless separately billed official MCP/API automation is explicitly enabled.
 
 ## Immediate next milestone
 
-After the cleaned foundation is merged to `main`:
+Once the cleaned foundation is on `main`:
 
-1. run `docs/WORKSTATION-VALIDATION.md` on the VS Code execution workstation;
-2. smoke-test Codex, Claude Code, and Kiro in read mode, then isolated modify mode;
-3. run the first real R1 dogfood task through Code Conductor;
-4. raise it to R2 with an independent different-provider challenger and GitHub Gatekeeper review;
-5. capture structured evidence and close any defects found;
-6. validate the VS Code cockpit against the same run;
-7. prepare the v0.1 release candidate.
+1. verify the resulting `main` checks and remove the merged bootstrap branch;
+2. run `docs/WORKSTATION-VALIDATION.md` on the VS Code execution workstation;
+3. smoke-test Codex, Claude Code, and Kiro in read mode, then isolated modify mode;
+4. run the first real R1 dogfood task through Code Conductor;
+5. raise it to R2 with an independent different-provider challenger and GitHub Gatekeeper review;
+6. capture structured evidence and close any defects found;
+7. validate the VS Code cockpit against the same run;
+8. prepare the v0.1 release candidate.
 
 ## Release definition
 
