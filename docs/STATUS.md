@@ -5,12 +5,12 @@
 
 ## Current state
 
-The repository has moved beyond architecture-only scaffolding. The foundational runtime, policy, packaging, Git, GitHub, MCP, workstation, and VS Code components exist and are validated in CI. Repository documentation/governance has been standardized, the first GitHub Copilot Gatekeeper review has been acted on, and the dependency audit is clean. The remaining release work is live workstation/provider validation, end-to-end multi-agent dogfooding, and final release readiness.
+The repository has moved beyond architecture-only scaffolding. The foundational runtime, policy, packaging, Git, GitHub, MCP, workstation, and VS Code components exist and are validated in CI. Repository documentation/governance has been standardized, two GitHub Copilot Gatekeeper review rounds have been acted on, and the dependency audit is clean. The remaining release work is live workstation/provider validation, end-to-end multi-agent dogfooding, and final release readiness.
 
 ## Verified in repository/CI
 
 - TypeScript workspace builds successfully on Node 24.
-- Current unit suite passes: **22 tests across 9 test files**.
+- Current unit suite passes: **27 tests across 11 test files**.
 - `cc validate` passes repository policy/configuration validation.
 - `package-lock.json` is committed and validated with `npm ci`/lockfile-drift checks.
 - Vitest was upgraded to 5.0.0 and the current npm dependency graph reports **0 vulnerabilities**.
@@ -23,9 +23,11 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 - A thin VS Code extension foundation exists for Team, Runs, Gates, Connections, Packs, and Usage.
 - GitHub Actions used by repository workflows are pinned to reviewed immutable commit SHAs.
 - Executable Ansible/Azure MCP npm package references are pinned rather than resolved through floating `latest` tags.
-- Local run/evidence directories/files are restricted to owner-only permissions on POSIX systems and covered by regression tests.
+- Local run/evidence directories/files and workstation trust state use owner-only permissions on POSIX systems and are covered by regression tests.
 - Gate glob matching has explicit recursive-glob regression coverage.
-- Missing workstation trust continues to fail closed and is now explicitly covered by a runtime regression test.
+- Advisory deterministic gates retain their non-blocking semantics during final readiness evaluation.
+- GitHub MCP selection is no longer enabled for non-git directories solely by default profile seeding.
+- Missing workstation trust continues to fail closed and is explicitly covered by a runtime regression test.
 
 ## Not yet release-verified
 
@@ -34,7 +36,7 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 - Kiro Pro headless subscription-credit behavior on the target workstation.
 - Authenticated official MCP behavior for real project profiles before write authority is granted.
 - A complete real R1/R2 task that spans independent builder/reviewer or challenger roles, deterministic validation, preserved worktree changes, GitHub PR checks, structured evidence, and final readiness.
-- GitHub Copilot's first-party review has been exercised on this foundation PR; re-review and the first complete Code Conductor-managed dogfood PR remain part of release validation.
+- GitHub Copilot's first-party review has been exercised repeatedly on this foundation PR; the first complete Code Conductor-managed dogfood PR remains part of release validation.
 - VS Code extension installation/activation and interaction testing on the target workstation.
 - Google Antigravity unattended execution remains intentionally disabled pending permission/sandbox revalidation.
 - Perplexity Pro remains human-in-the-loop unless separately billed official MCP/API automation is explicitly enabled.
