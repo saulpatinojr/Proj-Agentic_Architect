@@ -19,15 +19,17 @@ Do not redesign a locked architecture decision from memory or preference. If ver
 
 The repository foundation is implemented rather than architecture-only:
 
-- TypeScript workspace and structured contracts exist.
+- TypeScript workspace and structured contracts exist;
 - task state/risk/policy planning and runtime execution foundations exist;
-- bounded retry, structured result parsing, run/evidence persistence, deterministic gates, and worktree handling exist;
+- bounded retry, structured result parsing, private run/evidence persistence, deterministic gates, and worktree handling exist;
 - APM 0.30.0 is pinned, the lockfile and materialized projections are committed, and APM audit passes;
 - `package-lock.json` is committed and CI uses reproducible installs;
+- Vitest 5 is installed and the current npm dependency graph is audit-clean;
 - initial Codex, Claude, Kiro, Antigravity, GitHub, APM, MCP, and workstation adapter boundaries exist;
 - `cc validate`, `doctor`, `plan`, `run`, `harness-smoke`, MCP/APM, and GitHub-gate command paths exist;
 - the VS Code extension foundation exposes Team, Runs, Gates, Connections, Packs, and Usage;
-- repository CI currently passes.
+- repository CI currently passes;
+- the first GitHub Copilot Gatekeeper review has been exercised and its concrete findings have been addressed.
 
 The authoritative current status is `docs/STATUS.md`.
 
@@ -35,14 +37,14 @@ The authoritative current status is `docs/STATUS.md`.
 
 Do not create more architecture scaffolding before proving the existing implementation.
 
-1. Complete repository cleanup and merge the validated foundation to `main`.
+1. Confirm the working branch starts from current `main` and review `docs/STATUS.md` for the next milestone.
 2. Follow `docs/WORKSTATION-VALIDATION.md` on the actual VS Code execution workstation.
 3. Validate official subscription authentication and read/modify smoke boundaries for Codex, Claude Code, and Kiro.
 4. Keep Antigravity unattended execution blocked until its permission/sandbox decision is superseded with evidence.
 5. Execute the first real R1 Code Conductor dogfood task using an isolated modifying worker plus independent validation/review.
 6. Raise the same workflow to R2 with a different-provider challenger and GitHub Gatekeeper participation.
 7. Capture structured evidence, fix defects found, and validate the VS Code cockpit against the run.
-8. Triage known dependency audit findings before declaring a v0.1 release candidate.
+8. Prepare the v0.1 release candidate only when the release definition in `docs/IMPLEMENTATION-PLAN.md` is satisfied.
 
 ## Locked operating model
 
