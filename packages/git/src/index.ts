@@ -20,8 +20,17 @@ export interface AgentCommit {
   created: boolean;
 }
 
-function safeSegment(value: string): string {
-  return value.replace(/[^A-Za-z0-9._-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'agent';
+export function safeGitRefSegment(value: string): string {
+  let segment = value
+    .replace(/[^A-Za-z0-9._-]/g, '-')
+    .replace(/\.\.+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '')
+    .slice(0, 80)
+    .replace(/[.-]+$/g, '');
+  if (segment.toLowerCase().endsWith('.lock')) segment = `${segment.slice(0, -5)}-lock`;
+  segment = segment.replace(/\.\.+/g, '-').replace(/^[.-]+|[.-]+$/g, '');
+  return segment || 'agent';
 }
 
 function ensurePrivateDirectory(path: string): void {
@@ -31,8 +40,12 @@ function ensurePrivateDirectory(path: string): void {
 
 function git(cwd: string, args: string[], allowFailure = false): string {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8', shell: false });
+  if (result.error) {
+    throw new Error(`git ${args.join(' ')} failed to start: ${result.error.message}`);
+  }
   if (result.status !== 0 && !allowFailure) {
-    throw new Error(`git ${args.join(' ')} failed: ${(result.stderr || result.stdout || '').trim()}`);
+    const diagnostic = [result.stderr || '', result.stdout || ''].filter(Boolean).join('\n').trim();
+    throw new Error(`git ${args.join(' ')} failed${diagnostic ? `: ${diagnostic}` : ` (exit ${String(result.status)})`}`);
   }
   return (result.stdout || '').trim();
 }
@@ -98,8 +111,8 @@ export class WorktreeManager {
     const repo = resolveRepositoryRoot(repositoryRoot);
     const baseSha = git(repo, ['rev-parse', baseRef]);
     const repoId = createHash('sha256').update(repo).digest('hex').slice(0, 10);
-    const task = safeSegment(taskId);
-    const agent = safeSegment(agentId);
+    const task = safeGitRefSegment(taskId);
+    const agent = safeGitRefSegment(agentId);
     const branch = `cc/${task}/${agent}`;
     const repoDirectory = join(this.root, repoId);
     const taskDirectory = join(repoDirectory, task);
