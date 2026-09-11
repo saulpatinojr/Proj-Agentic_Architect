@@ -1,0 +1,44 @@
+version: 1
+
+risk_classes:
+  R0:
+    description: trivial, bounded, low-impact
+    required_roles: [builder]
+    deterministic_validation: true
+    human_approval: false
+
+  R1:
+    description: normal engineering change
+    required_roles: [builder, validator]
+    independent_review: true
+    deterministic_validation: true
+    human_approval: false
+
+  R2:
+    description: important or cross-component change
+    required_roles: [builder, challenger, validator, github_gatekeeper]
+    challenger_must_use_different_provider_from_builder: true
+    deterministic_validation: true
+    human_approval: false
+
+  R3:
+    description: high-impact architecture, security, or production-facing change
+    required_roles:
+      - researcher
+      - spec_lead
+      - builder
+      - challenger
+      - security_reviewer
+      - validator
+      - github_gatekeeper
+      - finalizer
+    challenger_must_use_different_provider_from_builder: true
+    deterministic_validation: true
+    human_approval: true
+
+  R4:
+    description: destructive or externally consequential production action
+    inherits: R3
+    human_approval: true
+    require_human_approval_before_side_effect: true
+    unattended_execution: false
