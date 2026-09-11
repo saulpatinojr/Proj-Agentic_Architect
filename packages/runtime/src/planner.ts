@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import type { AgentAssignment, RiskClass, Stance, TaskEnvelope } from '@code-conductor/schemas';
+import type { AgentAssignment, BillingChannel, RiskClass, Stance, TaskEnvelope } from '@code-conductor/schemas';
 
 interface RoleDefinition {
   stance: Stance;
@@ -43,6 +43,16 @@ function authorityFor(role: RoleDefinition): string[] {
   if (role.may_merge) authority.push('merge');
   return authority;
 }
+function requiresWorkstationClient(capability: HarnessDefinition): boolean {
+  const automation = capability.automation ?? '';
+  return automation.startsWith('cli_') || automation.startsWith('interactive_');
+}
+function billingChannelFor(capability: HarnessDefinition): BillingChannel {
+  const automation = capability.automation ?? '';
+  if (automation === 'local') return 'local';
+  if (automation.startsWith('manual_')) return 'manual';
+  return 'subscription';
+}
 
 export interface PlanOptions { availableHarnesses?: Set<string> }
 export interface TaskPlan { runId: string; task: TaskEnvelope; assignments: AgentAssignment[] }
@@ -62,7 +72,12 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
     if (!role) throw new Error(`Role ${roleName} is not defined.`);
     const preferred = role.preferred_harnesses ?? Object.keys(capabilities.harnesses);
     let candidates = preferred.filter((harness) => capabilities.harnesses[harness]);
-    if (available) candidates = candidates.filter((harness) => available.has(harness) || harness === 'internal-validator' || harness === 'perplexity' || harness === 'copilot-github');
+    if (available) {
+      candidates = candidates.filter((harness) => {
+        const capability = capabilities.harnesses[harness];
+        return Boolean(capability) && (!requiresWorkstationClient(capability) || available.has(harness));
+      });
+    }
     if (roleName === 'challenger' && builderProvider) {
       const independent = candidates.filter((harness) => capabilities.harnesses[harness]?.provider !== builderProvider);
       if (independent.length > 0) candidates = independent;
@@ -76,7 +91,7 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
     if (roleName === 'builder') for (const assignment of assignments.filter((item) => ['researcher', 'spec_lead'].includes(item.role))) dependsOn.push(assignment.id);
     const assignment: AgentAssignment = {
       id: `A-${assignments.length + 1}-${randomUUID().slice(0, 8)}`, taskId: task.id, agentId: `${roleName}-${harness}`, role: roleName, stance: role.stance,
-      provider: capability.provider, harness, billingChannel: harness === 'perplexity' ? 'manual' : harness === 'internal-validator' ? 'local' : 'subscription', authority: authorityFor(role), dependsOn,
+      provider: capability.provider, harness, billingChannel: billingChannelFor(capability), authority: authorityFor(role), dependsOn,
     };
     assignments.push(assignment);
     if (roleName === 'builder') { builderProvider = capability.provider; builderAssignmentId = assignment.id; }
