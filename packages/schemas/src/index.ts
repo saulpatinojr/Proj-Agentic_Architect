@@ -1,6 +1,6 @@
 export type Stance = 'constructive' | 'critical' | 'neutral';
 export type RiskClass = 'R0' | 'R1' | 'R2' | 'R3' | 'R4';
-export type BillingChannel = 'subscription' | 'api' | 'manual';
+export type BillingChannel = 'subscription' | 'api' | 'manual' | 'local';
 
 export interface TaskEnvelope {
   id: string;
@@ -27,7 +27,7 @@ export interface AgentAssignment {
 
 export interface Evidence {
   id: string;
-  kind: 'repository' | 'test' | 'documentation' | 'tool' | 'human' | 'other';
+  kind: 'repository' | 'test' | 'documentation' | 'tool' | 'human' | 'agent_output' | 'other';
   source: string;
   summary: string;
   uri?: string;
@@ -58,7 +58,7 @@ export interface AgentResult {
   provider: string;
   harness: string;
   billingChannel: BillingChannel;
-  status: 'completed' | 'blocked' | 'failed' | 'cancelled';
+  status: 'completed' | 'awaiting_external' | 'blocked' | 'failed' | 'cancelled';
   changes: string[];
   tests: GateResult[];
   evidence: Evidence[];

@@ -6,6 +6,7 @@
     { "path": "../core" },
     { "path": "../policy" },
     { "path": "../runtime" },
+    { "path": "../gates" },
     { "path": "../mcp" },
     { "path": "../apm-adapter" },
     { "path": "../github-gate" }

@@ -12,7 +12,6 @@ interface RoleDefinition {
   may_block?: boolean;
   may_execute_validation?: boolean;
 }
-
 interface RolesDocument { roles: Record<string, RoleDefinition> }
 interface RiskDefinition { required_roles?: string[]; inherits?: RiskClass }
 interface RiskDocument { risk_classes: Record<RiskClass, RiskDefinition> }
@@ -41,15 +40,8 @@ function authorityFor(role: RoleDefinition): string[] {
   return authority;
 }
 
-export interface PlanOptions {
-  availableHarnesses?: Set<string>;
-}
-
-export interface TaskPlan {
-  runId: string;
-  task: TaskEnvelope;
-  assignments: AgentAssignment[];
-}
+export interface PlanOptions { availableHarnesses?: Set<string> }
+export interface TaskPlan { runId: string; task: TaskEnvelope; assignments: AgentAssignment[] }
 
 export function planTask(root: string, task: TaskEnvelope, options: PlanOptions = {}): TaskPlan {
   const roles = load<RolesDocument>(root, 'config/roles.yaml');
@@ -78,40 +70,22 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
 
     const dependsOn: string[] = [];
     if (roleName !== 'builder' && builderAssignmentId && !['researcher', 'spec_lead'].includes(roleName)) dependsOn.push(builderAssignmentId);
-    if (roleName === 'builder') {
-      for (const assignment of assignments.filter((item) => ['researcher', 'spec_lead'].includes(item.role))) dependsOn.push(assignment.id);
-    }
+    if (roleName === 'builder') for (const assignment of assignments.filter((item) => ['researcher', 'spec_lead'].includes(item.role))) dependsOn.push(assignment.id);
 
     const assignment: AgentAssignment = {
-      id: `A-${assignments.length + 1}-${randomUUID().slice(0, 8)}`,
-      taskId: task.id,
-      agentId: `${roleName}-${harness}`,
-      role: roleName,
-      stance: role.stance,
-      provider: capability.provider,
-      harness,
-      billingChannel: harness === 'perplexity' ? 'manual' : 'subscription',
-      authority: authorityFor(role),
-      dependsOn,
+      id: `A-${assignments.length + 1}-${randomUUID().slice(0, 8)}`, taskId: task.id, agentId: `${roleName}-${harness}`, role: roleName, stance: role.stance,
+      provider: capability.provider, harness, billingChannel: harness === 'perplexity' ? 'manual' : harness === 'internal-validator' ? 'local' : 'subscription',
+      authority: authorityFor(role), dependsOn,
     };
     assignments.push(assignment);
-    if (roleName === 'builder') {
-      builderProvider = capability.provider;
-      builderAssignmentId = assignment.id;
-    }
+    if (roleName === 'builder') { builderProvider = capability.provider; builderAssignmentId = assignment.id; }
   }
-
   return { runId: `CC-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 8)}`, task, assignments };
 }
 
 export function createTask(objective: string, risk: RiskClass, repository?: string): TaskEnvelope {
-  return {
-    id: `T-${randomUUID()}`,
-    objective,
-    ...(repository ? { repository } : {}),
-    acceptanceCriteria: [],
-    risk,
-    constraints: [],
-    createdAt: new Date().toISOString(),
-  };
+  return { id: `T-${randomUUID()}`, objective, ...(repository ? { repository } : {}), acceptanceCriteria: [], risk, constraints: [], createdAt: new Date().toISOString() };
 }
+
+export { executeTask, type ExecuteOptions, type ExecuteOutcome } from './execute.js';
+export { parseAgentResult, externalAwaitingResult } from './result.js';

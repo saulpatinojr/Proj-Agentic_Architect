@@ -1,0 +1,80 @@
+import { randomUUID } from 'node:crypto';
+import type { AgentAssignment, AgentResult, Evidence } from '@code-conductor/schemas';
+import type { HarnessExecutionOutcome } from '@code-conductor/adapters';
+
+const marker = 'CC_RESULT_JSON:';
+
+export function parseAgentResult(assignment: AgentAssignment, outcome: HarnessExecutionOutcome): AgentResult {
+  const markerIndex = outcome.stdout.lastIndexOf(marker);
+  if (markerIndex >= 0) {
+    const raw = outcome.stdout.slice(markerIndex + marker.length).trim().split(/\r?\n/)[0] ?? '';
+    try {
+      const candidate = JSON.parse(raw) as Partial<AgentResult>;
+      return {
+        taskId: assignment.taskId,
+        assignmentId: assignment.id,
+        agentId: assignment.agentId,
+        role: assignment.role,
+        stance: assignment.stance,
+        provider: assignment.provider,
+        harness: assignment.harness,
+        billingChannel: assignment.billingChannel,
+        status: candidate.status ?? (outcome.exitCode === 0 ? 'completed' : 'failed'),
+        changes: candidate.changes ?? [],
+        tests: candidate.tests ?? [],
+        evidence: candidate.evidence ?? [],
+        findings: candidate.findings ?? [],
+        risks: candidate.risks ?? [],
+        blockers: candidate.blockers ?? [],
+        recommendation: candidate.recommendation ?? (outcome.exitCode === 0 ? 'review' : 'changes_required'),
+      };
+    } catch {
+      // Fall through to evidence-preserving failure result.
+    }
+  }
+  const evidence: Evidence = {
+    id: `E-${randomUUID()}`,
+    kind: 'agent_output',
+    source: `${assignment.harness}:${assignment.agentId}`,
+    summary: [outcome.stdout.trim(), outcome.stderr.trim()].filter(Boolean).join('\n').slice(0, 12000) || 'Agent returned no structured result.',
+  };
+  return {
+    taskId: assignment.taskId,
+    assignmentId: assignment.id,
+    agentId: assignment.agentId,
+    role: assignment.role,
+    stance: assignment.stance,
+    provider: assignment.provider,
+    harness: assignment.harness,
+    billingChannel: assignment.billingChannel,
+    status: 'failed',
+    changes: [],
+    tests: [],
+    evidence: [evidence],
+    findings: [],
+    risks: [],
+    blockers: ['Agent did not return a valid CC_RESULT_JSON structured result.'],
+    recommendation: 'changes_required',
+  };
+}
+
+export function externalAwaitingResult(assignment: AgentAssignment, reason: string): AgentResult {
+  return {
+    taskId: assignment.taskId,
+    assignmentId: assignment.id,
+    agentId: assignment.agentId,
+    role: assignment.role,
+    stance: assignment.stance,
+    provider: assignment.provider,
+    harness: assignment.harness,
+    billingChannel: assignment.billingChannel,
+    status: 'awaiting_external',
+    changes: [],
+    tests: [],
+    evidence: [],
+    findings: [],
+    risks: [],
+    blockers: [reason],
+    recommendation: 'human_required',
+  };
+}

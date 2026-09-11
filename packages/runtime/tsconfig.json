@@ -5,6 +5,7 @@
     { "path": "../schemas" },
     { "path": "../adapters" },
     { "path": "../evidence" },
+    { "path": "../gates" },
     { "path": "../git" }
   ],
   "include": ["src/**/*.ts"]
