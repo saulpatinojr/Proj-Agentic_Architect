@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolve } from 'node:path';
-import { blockingGateFailure, detectGateProfiles, globMatch, runGates } from '../../packages/gates/src/index.js';
+import { blockingGateFailure, detectGateProfiles, globMatch, runGates, type GateExecution } from '../../packages/gates/src/index.js';
 
 describe('deterministic gates', () => {
   it('detects the Code Conductor profile', () => {
@@ -26,5 +26,15 @@ describe('deterministic gates', () => {
   it('blocks on a failed blocking gate', () => {
     const executions = runGates(resolve('.'), ['code-conductor'], () => ({ status: 1, stdout: '', stderr: 'failed' }));
     expect(blockingGateFailure(executions)).toBe(true);
+  });
+
+  it('does not block readiness for a failed advisory gate', () => {
+    const advisoryFailure: GateExecution = {
+      profile: 'advisory',
+      blocking: false,
+      result: { gate: 'advisory-check', status: 'failed', evidenceIds: ['E-advisory'], summary: 'advisory finding' },
+      evidence: { id: 'E-advisory', kind: 'test', source: 'advisory-check', summary: 'advisory finding' },
+    };
+    expect(blockingGateFailure([advisoryFailure])).toBe(false);
   });
 });
