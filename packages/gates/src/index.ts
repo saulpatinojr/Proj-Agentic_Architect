@@ -69,9 +69,35 @@ function listFiles(root: string, maxDepth = 5): string[] {
   return output;
 }
 
-function globMatch(path: string, pattern: string): boolean {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replaceAll('**/', '(?:.*/)?').replaceAll('**', '.*').replaceAll('*', '[^/]*').replaceAll('?', '.');
-  return new RegExp(`^${escaped}$`).test(path);
+export function globMatch(path: string, pattern: string): boolean {
+  let expression = '^';
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    const next = pattern[index + 1];
+    const afterNext = pattern[index + 2];
+
+    if (char === '*' && next === '*' && afterNext === '/') {
+      expression += '(?:.*/)?';
+      index += 2;
+      continue;
+    }
+    if (char === '*' && next === '*') {
+      expression += '.*';
+      index += 1;
+      continue;
+    }
+    if (char === '*') {
+      expression += '[^/]*';
+      continue;
+    }
+    if (char === '?') {
+      expression += '[^/]';
+      continue;
+    }
+    expression += /[\\^$.*+?()[\]{}|]/.test(char ?? '') ? `\\${char}` : char;
+  }
+  expression += '$';
+  return new RegExp(expression).test(path);
 }
 
 export function loadGateConfig(root: string): GateConfig {
