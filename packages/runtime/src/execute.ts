@@ -50,6 +50,7 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
   const manifest: RunManifest = { runId: plan.runId, task, assignments: plan.assignments, results: [], gates: [] };
   const pendingExternal: AgentAssignment[] = [];
   const createdWorktrees: WorktreeHandle[] = [];
+  const executedGates: GateExecution[] = [];
   let primaryBuilderWorktree: WorktreeHandle | undefined;
   const save = (): string => store.saveManifest(manifest);
   store.appendEvent({ at: new Date().toISOString(), runId: plan.runId, type: 'run.planned', message: `Planned ${plan.assignments.length} assignment(s).` });
@@ -69,6 +70,7 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
       if (assignment.harness === 'internal-validator') {
         const validationRoot = primaryBuilderWorktree?.path ?? root;
         const gateExecutions = runGates(validationRoot, undefined, options.gateExecutor);
+        executedGates.push(...gateExecutions);
         manifest.gates.push(...gateExecutions.map((item) => item.result));
         const failed = blockingGateFailure(gateExecutions);
         manifest.results.push({
@@ -133,8 +135,7 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
       manifestPath = save();
     }
 
-    const gateViews: GateExecution[] = manifest.gates.map((result) => ({ profile: 'run', result, evidence: { id: result.evidenceIds[0] ?? `E-${randomUUID()}`, kind: 'test', source: result.gate, summary: result.summary ?? result.status }, blocking: true }));
-    manifest.mergeDecision = mergeDecision(task, manifest.results, gateViews);
+    manifest.mergeDecision = mergeDecision(task, manifest.results, executedGates);
     manifestPath = save();
     store.appendEvent({ at: new Date().toISOString(), runId: plan.runId, type: 'run.completed', message: manifest.mergeDecision.decision });
     return { plan, manifest, manifestPath, pendingExternal, worktrees: createdWorktrees };
