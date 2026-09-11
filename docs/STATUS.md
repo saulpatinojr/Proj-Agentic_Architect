@@ -10,7 +10,7 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 ## Verified in repository/CI
 
 - TypeScript workspace builds successfully on Node 24.
-- Current unit suite passes: **38 tests across 13 test files**.
+- Current unit suite passes: **42 tests across 13 test files**.
 - `cc validate` passes repository policy/configuration validation.
 - `package-lock.json` is committed and validated with `npm ci`/lockfile-drift checks.
 - Vitest 5.0.0 is installed and the current npm dependency graph reports **0 vulnerabilities**.
@@ -21,10 +21,13 @@ The repository has moved beyond architecture-only scaffolding. The foundational 
 - Task planning, structured result contracts, risk/policy checks, deterministic gates, run persistence, bounded retries, and modifying worktree support are implemented.
 - Planner assignments project configured role capabilities into authority labels, including validation, disagreement resolution, merge recommendation, approval, and merge authority; the finalizer is explicitly tested to recommend merge without receiving approval or merge authority.
 - Planner availability is derived from the harness automation class instead of hard-coded harness IDs, so platform/manual/local lanes remain eligible without pretending to be installed headless CLIs.
+- The challenger role's configured different-provider threshold is consumed by the planner and fails closed when an R2+ independent provider cannot be selected.
 - CLI commands exist for repository validation, doctor, planning, dry-run/execution, harness smoke tests, MCP selection, APM audit, and GitHub gate inspection.
 - GitHub and APM helpers preserve CLI spawn errors so missing or non-runnable clients are diagnosable rather than reported with empty stderr.
 - Git subprocess startup failures are explicit even on helper paths that otherwise tolerate nonzero Git command exits.
 - Git task/agent identifiers are sanitized into bounded ref-safe branch components, including protection against `..`, leading/trailing dots, and `.lock` suffixes.
+- NUL-delimited Git status parsing returns the destination/current path for rename/copy entries so sensitive-path checks cannot be bypassed through rename syntax.
+- Evidence run-directory names cannot express relative/path traversal semantics; unsafe external run IDs are normalized and digest-suffixed, with traversal/collision regression tests.
 - A thin VS Code extension foundation exists for Team, Runs, Gates, Connections, Packs, and Usage.
 - GitHub Actions used by repository workflows are pinned to reviewed immutable commit SHAs.
 - Executable Ansible/Azure MCP npm package references are pinned rather than resolved through floating `latest` tags.
