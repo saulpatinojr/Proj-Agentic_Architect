@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import type { AgentAssignment, BillingChannel, RiskClass, Stance, TaskEnvelope } from '@code-conductor/schemas';
 
+interface RoleConstraints {
+  different_provider_from_builder_when_risk_at_least?: RiskClass;
+}
 interface RoleDefinition {
   stance: Stance;
   preferred_harnesses?: string[];
@@ -15,12 +18,15 @@ interface RoleDefinition {
   may_recommend_merge?: boolean;
   may_approve?: boolean;
   may_merge?: boolean;
+  constraints?: RoleConstraints;
 }
 interface RolesDocument { roles: Record<string, RoleDefinition> }
 interface RiskDefinition { required_roles?: string[]; inherits?: RiskClass }
 interface RiskDocument { risk_classes: Record<RiskClass, RiskDefinition> }
 interface HarnessDefinition { provider: string; subscription?: string; automation?: string }
 interface CapabilityDocument { harnesses: Record<string, HarnessDefinition> }
+
+const riskRank: Record<RiskClass, number> = { R0: 0, R1: 1, R2: 2, R3: 3, R4: 4 };
 
 function load<T>(root: string, path: string): T { return parse(readFileSync(join(root, path), 'utf8')) as T; }
 function inheritedRoles(risks: RiskDocument, risk: RiskClass, seen = new Set<RiskClass>()): string[] {
@@ -53,6 +59,9 @@ function billingChannelFor(capability: HarnessDefinition): BillingChannel {
   if (automation.startsWith('manual_')) return 'manual';
   return 'subscription';
 }
+function riskAtLeast(actual: RiskClass, threshold: RiskClass): boolean {
+  return riskRank[actual] >= riskRank[threshold];
+}
 
 export interface PlanOptions { availableHarnesses?: Set<string> }
 export interface TaskPlan { runId: string; task: TaskEnvelope; assignments: AgentAssignment[] }
@@ -79,9 +88,9 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
         return !requiresWorkstationClient(capability) || available.has(harness);
       });
     }
-    if (roleName === 'challenger' && builderProvider) {
-      const independent = candidates.filter((harness) => capabilities.harnesses[harness]?.provider !== builderProvider);
-      if (independent.length > 0) candidates = independent;
+    const independenceThreshold = role.constraints?.different_provider_from_builder_when_risk_at_least;
+    if (builderProvider && independenceThreshold && riskAtLeast(task.risk, independenceThreshold)) {
+      candidates = candidates.filter((harness) => capabilities.harnesses[harness]?.provider !== builderProvider);
     }
     const harness = candidates[0];
     if (!harness) throw new Error(`No eligible harness is available for role ${roleName}.`);
