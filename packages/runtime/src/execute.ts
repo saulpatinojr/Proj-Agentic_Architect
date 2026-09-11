@@ -4,7 +4,7 @@ import type { HarnessAdapter, HarnessExecutionRequest } from '@code-conductor/ad
 import { createBuiltinAdapters } from '@code-conductor/adapters';
 import { RunStore } from '@code-conductor/evidence';
 import { blockingGateFailure, runGates, type CommandExecutor, type GateExecution } from '@code-conductor/gates';
-import { WorktreeManager, type WorktreeHandle } from '@code-conductor/git';
+import { commitAgentChanges, WorktreeManager, type WorktreeHandle } from '@code-conductor/git';
 import { externalAwaitingResult, parseAgentResult } from './result.js';
 import { planTask, type TaskPlan } from './planner.js';
 
@@ -18,7 +18,7 @@ export interface ExecuteOptions {
   keepWorktrees?: boolean;
   isHarnessTrusted?: (harness: string, mode: 'read' | 'modify') => boolean;
 }
-export interface ExecuteOutcome { plan: TaskPlan; manifest: RunManifest; manifestPath: string; pendingExternal: AgentAssignment[] }
+export interface ExecuteOutcome { plan: TaskPlan; manifest: RunManifest; manifestPath: string; pendingExternal: AgentAssignment[]; worktrees: WorktreeHandle[] }
 
 function buildPrompt(task: TaskEnvelope, assignment: AgentAssignment): string {
   return [
@@ -54,7 +54,7 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
   const save = (): string => store.saveManifest(manifest);
   store.appendEvent({ at: new Date().toISOString(), runId: plan.runId, type: 'run.planned', message: `Planned ${plan.assignments.length} assignment(s).` });
   let manifestPath = save();
-  if (!options.execute) return { plan, manifest, manifestPath, pendingExternal };
+  if (!options.execute) return { plan, manifest, manifestPath, pendingExternal, worktrees: createdWorktrees };
 
   try {
     for (const assignment of plan.assignments) {
@@ -95,9 +95,10 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
       }
 
       let cwd = root;
+      let assignmentWorktree: WorktreeHandle | undefined;
       if (assignment.authority.includes('modify_worktree')) {
-        const handle = worktrees.create(root, task.id, assignment.agentId);
-        createdWorktrees.push(handle); primaryBuilderWorktree ??= handle; cwd = handle.path;
+        assignmentWorktree = worktrees.create(root, task.id, assignment.agentId);
+        createdWorktrees.push(assignmentWorktree); primaryBuilderWorktree ??= assignmentWorktree; cwd = assignmentWorktree.path;
       } else if (primaryBuilderWorktree) cwd = primaryBuilderWorktree.path;
 
       const request: HarnessExecutionRequest = { task, assignment, cwd, timeoutMs: options.timeoutMs ?? 1800000, prompt: buildPrompt(task, assignment) };
@@ -111,6 +112,22 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
         } catch (error) { lastError = error; }
       }
       result ??= { taskId: task.id, assignmentId: assignment.id, agentId: assignment.agentId, role: assignment.role, stance: assignment.stance, provider: assignment.provider, harness: assignment.harness, billingChannel: assignment.billingChannel, status: 'failed', changes: [], tests: [], evidence: [], findings: [], risks: [], blockers: [lastError instanceof Error ? lastError.message : 'Harness execution failed after bounded retry.'], recommendation: 'changes_required' };
+
+      if (assignmentWorktree && result.status === 'completed') {
+        try {
+          const commit = commitAgentChanges(assignmentWorktree, `feat(agent): ${assignment.agentId} for ${task.id}`);
+          result.changes = commit?.files ?? [];
+          if (commit) {
+            result.evidence.push({ id: `E-${randomUUID()}`, kind: 'repository', source: `git:${commit.sha}`, summary: `${commit.created ? 'Committed' : 'Preserved existing commits for'} ${commit.files.length} changed file(s) on ${assignmentWorktree.branch}: ${commit.files.join(', ')}` });
+            store.appendEvent({ at: new Date().toISOString(), runId: plan.runId, type: 'worktree.committed', assignmentId: assignment.id, message: `${assignmentWorktree.branch}@${commit.sha}` });
+          }
+        } catch (error) {
+          result.status = 'blocked';
+          result.recommendation = 'changes_required';
+          result.blockers.push(error instanceof Error ? error.message : String(error));
+        }
+      }
+
       manifest.results.push(result);
       store.appendEvent({ at: new Date().toISOString(), runId: plan.runId, type: 'assignment.completed', assignmentId: assignment.id, message: result.status });
       manifestPath = save();
@@ -120,8 +137,12 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
     manifest.mergeDecision = mergeDecision(task, manifest.results, gateViews);
     manifestPath = save();
     store.appendEvent({ at: new Date().toISOString(), runId: plan.runId, type: 'run.completed', message: manifest.mergeDecision.decision });
-    return { plan, manifest, manifestPath, pendingExternal };
+    return { plan, manifest, manifestPath, pendingExternal, worktrees: createdWorktrees };
   } finally {
-    if (!options.keepWorktrees) for (const handle of createdWorktrees) worktrees.remove(handle, false);
+    // Keep modifying worktrees by default so agent changes and commits cannot be
+    // silently discarded. Cleanup must be an explicit caller choice.
+    if (options.keepWorktrees === false) {
+      for (const handle of createdWorktrees) worktrees.remove(handle, false, false);
+    }
   }
 }

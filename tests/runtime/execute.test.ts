@@ -19,7 +19,7 @@ class FakeAdapter implements HarnessAdapter {
 
 class FakeWorktrees {
   root = '/fake';
-  create(repositoryRoot: string, taskId: string, agentId: string): WorktreeHandle { return { repositoryRoot, path: repositoryRoot, branch: `cc/${taskId}/${agentId}`, baseRef: 'HEAD', taskId, agentId }; }
+  create(repositoryRoot: string, taskId: string, agentId: string): WorktreeHandle { return { repositoryRoot, path: repositoryRoot, branch: `cc/${taskId}/${agentId}`, baseRef: 'HEAD', baseSha: 'fake-base', taskId, agentId }; }
   remove(): void {}
 }
 
