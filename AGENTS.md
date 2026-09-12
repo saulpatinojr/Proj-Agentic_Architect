@@ -118,7 +118,16 @@ APM is not the runtime scheduler. Code Conductor owns:
 
 MCP is the tool/reference plane, not the orchestration plane.
 
-## 12. Completion rule
+## 12. Context preparation
+
+- Context reduction MUST preserve authoritative meaning by default. Comments, instructions, acceptance criteria, policy, and security rationale are not disposable whitespace.
+- The context optimizer defaults to conservative/lossless preparation; aggressive comment or whitespace removal requires an explicit opt-in for content known to tolerate it.
+- File-based context preparation MUST remain inside approved workspace roots after symlink/canonical-path resolution and MUST reject sensitive credential/state paths and unbounded reads.
+- Token counts produced by local heuristics are estimates for relative telemetry, not vendor billing or quota data.
+- Core context preparation remains provider-neutral. Provider-specific prompt/cache syntax belongs only in a validated provider adapter.
+- The context optimizer's MCP transport is optional interoperability, not orchestration, and remains experimental until official SDK/protocol validation is complete.
+
+## 13. Completion rule
 
 The orchestrator owns the final result. Delegation does not transfer accountability.
 
