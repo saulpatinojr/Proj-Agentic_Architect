@@ -67,12 +67,23 @@ function packItems(root?: string): ItemSpec[] {
 
 function usageItems(root?: string): ItemSpec[] {
   const capabilities = root ? loadYaml<{ defaults?: { billing_policy?: string; allow_separately_billed_api?: boolean } }>(root, 'config/capabilities.yaml') : undefined;
+  const statsPath = join(process.env.CODE_CONDUCTOR_HOME || join(homedir(), '.code-conductor'), 'context-optimization-stats.json');
+  let savedTokens = 0;
+  if (existsSync(statsPath)) {
+    try {
+      const stats = JSON.parse(readFileSync(statsPath, 'utf8'));
+      savedTokens = stats.tokensSaved ?? 0;
+    } catch { /* ignore */ }
+  }
   return [
     { label: 'Billing policy', description: capabilities?.defaults?.billing_policy ?? 'subscription_first', icon: 'credit-card' },
     { label: 'Separately billed API', description: capabilities?.defaults?.allow_separately_billed_api ? 'enabled' : 'disabled by default', icon: capabilities?.defaults?.allow_separately_billed_api ? 'warning' : 'pass' },
+    { label: 'Context optimizer', description: 'active · AST minification enabled', icon: 'zap' },
+    { label: 'Tokens saved', description: `${savedTokens.toLocaleString()} tokens`, icon: 'graph' },
     { label: 'Quota telemetry', description: 'vendor-native / not stored', icon: 'pulse' },
   ];
 }
+
 
 function runCli(root: string, args: string[], title: string): void {
   const terminal = vscode.window.createTerminal({ name: title, cwd: root });

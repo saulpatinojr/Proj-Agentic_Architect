@@ -95,3 +95,17 @@ servers:
     enabled_by_default: false
     default_access: read
     profiles: [research-automated]
+
+  context-optimizer:
+    publisher: Code Conductor
+    official: true
+    maturity: ga
+    source: packages/context-optimizer
+    transport: stdio
+    command: node
+    args: [packages/context-optimizer/dist/index.js]
+    authentication: none
+    default_access: read
+    profiles: [context-optimization, token-reduction]
+    note: High-performance AST/syntax-aware context minification and token compression engine for prompts and ephemeral context blocks.
+

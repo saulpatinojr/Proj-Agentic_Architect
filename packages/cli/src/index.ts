@@ -11,6 +11,7 @@ import { WorkstationStore, type HarnessTrustMode } from '@code-conductor/worksta
 import { apmAudit, apmLockPresent, apmTargets } from '@code-conductor/apm-adapter';
 import { detectRepositoryProfiles, loadMcpCatalog, selectMcpServers } from '@code-conductor/mcp';
 import { githubAuthStatus, pullRequestChecks, pullRequestStatus } from '@code-conductor/github-gate';
+import { ContextOptimizer } from '@code-conductor/context-optimizer';
 
 const VERSION = '0.1.0';
 function hasCommand(command: string): boolean { const probe = process.platform === 'win32' ? 'where' : 'which'; return spawnSync(probe, [command], { stdio: 'ignore' }).status === 0; }
@@ -89,7 +90,9 @@ async function harnessSmoke(args: string[]): Promise<number> {
 function mcpList(args: string[]): number { const root = resolve(getOption(args, '--repo') ?? '.'); const catalog = loadMcpCatalog(root); const profiles = getOption(args, '--profiles')?.split(',').filter(Boolean) ?? detectRepositoryProfiles(root); const allowApi = args.includes('--allow-api'); console.log(JSON.stringify({ profiles, allowSeparatelyBilledApi: allowApi, servers: selectMcpServers(catalog, profiles, allowApi).map(([id, server]) => ({ id, publisher: server.publisher, maturity: server.maturity, authentication: server.authentication, defaultAccess: server.default_access })) }, null, 2)); return 0; }
 function apmCheck(rootArg?: string): number { const root = resolve(rootArg ?? '.'); if (!hasCommand('apm')) { console.error('ERROR apm.missing: apm executable is required.'); return 1; } const result = apmAudit(root); process.stdout.write(result.stdout); process.stderr.write(result.stderr); return result.ok ? 0 : 1; }
 function githubGate(args: string[]): number { const root = resolve(getOption(args, '--repo') ?? '.'); if (!hasCommand('gh')) { console.error('ERROR github.missing: gh executable is required.'); return 1; } const status = pullRequestStatus(root); process.stdout.write(status.stdout); process.stderr.write(status.stderr); if (!status.ok) return 1; const checks = pullRequestChecks(root); process.stdout.write(checks.stdout); process.stderr.write(checks.stderr); return checks.ok ? 0 : 1; }
-function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|version> [options]\n\nrun defaults to dry-run; pass --execute only after harness-smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.'); }
+function contextStats(): number { const optimizer = new ContextOptimizer(); console.log(JSON.stringify(optimizer.getStats(), null, 2)); return 0; }
+function compressFile(filePath?: string): number { if (!filePath) { console.error('ERROR compress.file_required: Specify a file path to compress.'); return 2; } const optimizer = new ContextOptimizer(); const { content, result } = optimizer.readCompressedFile(resolve(filePath), 'cli'); console.log(`Original tokens: ${result.originalTokens}\nOptimized tokens: ${result.optimizedTokens}\nTokens saved: ${result.tokensSaved} (${result.savingsPercent}%)\nOverhead: ${result.overheadMs}ms\nContext ID: ${result.contextId}\n\n--- Compressed Content ---\n${content}`); return 0; }
+function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nrun defaults to dry-run; pass --execute only after harness-smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.'); }
 
 const [command = 'help', ...args] = process.argv.slice(2); let exitCode = 0;
 switch (command) {
@@ -101,7 +104,10 @@ switch (command) {
   case 'mcp': exitCode = mcpList(args); break;
   case 'apm-audit': exitCode = apmCheck(args[0]); break;
   case 'github-gate': exitCode = githubGate(args); break;
+  case 'context-stats': exitCode = contextStats(); break;
+  case 'compress': exitCode = compressFile(args[0]); break;
   case 'version': case '--version': case '-v': console.log(VERSION); break;
   default: usage(); exitCode = command === 'help' || command === '--help' || command === '-h' ? 0 : 2;
 }
 process.exitCode = exitCode;
+

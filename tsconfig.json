@@ -4,6 +4,6 @@
     { "path": "./packages/schemas" }, { "path": "./packages/core" }, { "path": "./packages/policy" }, { "path": "./packages/evidence" },
     { "path": "./packages/git" }, { "path": "./packages/workstation" }, { "path": "./packages/adapters" }, { "path": "./packages/gates" },
     { "path": "./packages/runtime" }, { "path": "./packages/mcp" }, { "path": "./packages/apm-adapter" }, { "path": "./packages/github-gate" },
-    { "path": "./packages/cli" }, { "path": "./apps/vscode" }
+    { "path": "./packages/context-optimizer" }, { "path": "./packages/cli" }, { "path": "./apps/vscode" }
   ]
 }
