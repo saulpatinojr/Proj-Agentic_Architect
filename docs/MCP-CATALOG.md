@@ -1,10 +1,10 @@
-# Official MCP Catalog and Activation Policy
+# MCP Catalog and Activation Policy
 
 ## Principle
 
 MCP is Code Conductor's tool/reference plane. MCP servers expose capabilities; they do not schedule agents or decide authority.
 
-Only official vendor MCP servers or explicitly approved alternatives are part of the default catalog. Every MCP is enabled per repository profile and per task need. Do not globally load all tools into all agents.
+Vendor-official MCP servers and explicitly approved Code Conductor first-party adapters may appear in the catalog. Provenance must be explicit. Every MCP is enabled per repository profile and per task need. Do not globally load all tools into all agents.
 
 ## Initial catalog
 
@@ -19,6 +19,9 @@ Only official vendor MCP servers or explicitly approved alternatives are part of
 | AWS | Official AWS MCP services/tools | OFF unless AWS profile | AWS docs/resource/tool access constrained by IAM |
 | Google Cloud | Official Google Cloud managed/local MCP tooling | OFF unless GCP profile | GCP service/resource context constrained by IAM and selected toolsets |
 | Perplexity | Official Perplexity MCP | OFF by default | automated external research only when separately billed API use is explicitly enabled |
+| Context optimizer | Code Conductor first-party adapter | OFF unless context-optimization profile | bounded provider-neutral context preparation; experimental MCP transport |
+
+The context optimizer is **not vendor-official**. It is allowed because catalog policy explicitly recognizes Code Conductor first-party provenance. Its direct package/CLI path is the primary v0.1 path; the MCP adapter remains experimental until official MCP TypeScript SDK/current-protocol validation is complete.
 
 ## Activation profiles
 
@@ -49,9 +52,23 @@ profiles:
   application:
     mcp:
       - github
+
+  context-evaluation:
+    mcp:
+      - context-optimizer
 ```
 
-Profiles are additive only when the repository actually needs the additional platform.
+Profiles are additive only when the repository actually needs the additional platform/capability.
+
+## GitHub Copilot MCP configuration surfaces
+
+Do not conflate GitHub's MCP surfaces with Code Conductor's catalog:
+
+- `config/mcp-catalog.yaml` is the Code Conductor policy catalog and runtime selector.
+- `.github/mcp.json` is a minimal committed repository configuration for compatible local Copilot CLI workflows. It is not a mirror of the Code Conductor catalog.
+- GitHub.com Copilot code review/cloud-agent MCP servers are configured through the repository's Copilot settings. GitHub's built-in GitHub MCP capability is the preferred GitHub-native path; this repository does not mint a parallel GitHub App token merely to duplicate it.
+
+The repository intentionally does **not** auto-load Azure, Terraform, Cloudflare, or the experimental context optimizer into every Copilot session. Add only the MCP needed for the actual workspace/task.
 
 ## Tool minimization
 
@@ -74,6 +91,8 @@ tools:
 ## Authentication
 
 Authentication belongs to the MCP/vendor identity mechanism, not the agent prompt. Native IAM/RBAC remains authoritative for what the external service permits, while Code Conductor policy may impose stricter limits.
+
+First-party local adapters must still enforce local trust boundaries. For the context optimizer, file reads are restricted to configured workspace roots after canonical/symlink resolution; sensitive credential/state paths, oversized inputs, and non-regular files are denied.
 
 ## Writes and side effects
 
@@ -107,17 +126,21 @@ Code Conductor: whether this task/agent may use them now
 MCP server: executes/exposes the actual tool/resource
 ```
 
-## Validation checklist before an MCP enters the approved catalog
+## Validation checklist before an MCP enters or advances in the approved catalog
 
-- official publisher/source verified
-- current supported status verified
+- provenance is explicit: vendor-official, Code Conductor first-party, or third-party
+- publisher/source verified
+- current supported/maturity status verified
 - authentication flow documented
 - read/write capabilities identified
 - required local runtime/container dependencies identified
 - least-privilege setup documented
 - secret storage behavior understood
+- local file/network boundaries documented for first-party adapters
 - side effects classified
 - supported agent harnesses identified
 - startup/health check defined
 - deterministic fallback identified when appropriate
 - APM compatibility/projection validated if declared through APM
+- executable package/image versions pinned rather than floating
+- protocol/SDK compatibility validated before GA promotion
