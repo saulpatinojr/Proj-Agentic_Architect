@@ -1,11 +1,11 @@
 # Code Conductor
 
-Code Conductor is a **VS Code-centered, multi-provider agent engineering system**. It coordinates subscription-backed AI clients, reusable APM agent packs, official MCP tools/references, Git worktrees, GitHub pull requests, deterministic quality gates, and human approval without collapsing every provider into a generic chat interface.
+Code Conductor is a **VS Code-centered, multi-provider agent engineering system**. It coordinates subscription-backed AI clients, reusable APM agent packs, official MCP tools/references, safe context preparation, Git worktrees, GitHub pull requests, deterministic quality gates, and human approval without collapsing every provider into a generic chat interface.
 
 ## Status
 
 **Target:** v0.1 workstation/VS Code release  
-**Current checkpoint:** repository foundation and CI are implemented and green; live subscription-backed workstation validation and the first complete R1/R2 multi-agent dogfood run remain before release readiness.
+**Current checkpoint:** repository foundation and CI are implemented and green; live subscription-backed workstation validation and the first complete R1/R2 multi-agent dogfood run remain before release readiness. The new first-party context optimizer has been integrated as a conservative context-preparation capability; its MCP transport remains experimental until official-SDK/current-protocol validation is complete.
 
 See [`docs/STATUS.md`](docs/STATUS.md) for the maintained checkpoint.
 
@@ -14,15 +14,16 @@ See [`docs/STATUS.md`](docs/STATUS.md) for the maintained checkpoint.
 | Layer | Responsibility |
 |---|---|
 | VS Code | Human cockpit and native editor/terminal/diff/SCM surfaces |
-| Code Conductor | Task DAG, routing, risk, authority, evidence, arbitration, readiness |
+| Code Conductor | Task DAG, routing, risk, authority, context policy, evidence, arbitration, readiness |
+| Context preparation | Provider-neutral, workspace-bounded context reduction; lossless by default, aggressive only by explicit opt-in |
 | Official harnesses/clients | Codex, Claude Code, Kiro, Antigravity, Copilot/GitHub execution surfaces |
 | Microsoft APM | Agent-pack dependency, distribution, lock, projection, integrity, drift |
-| MCP | Official tools and reference resources; not the runtime scheduler |
+| MCP | Vendor-official and approved first-party tools/resources; not the runtime scheduler |
 | Git worktrees | Isolated modifying-agent workspaces |
 | GitHub | Repository, PR, Actions, review, and merge source of truth |
 | Human owner | Final authority for consequential/destructive operations |
 
-The repository constitution is [`AGENTS.md`](AGENTS.md). Locked architectural decisions are in [`docs/DECISIONS.md`](docs/DECISIONS.md).
+The repository constitution is [`AGENTS.md`](AGENTS.md). Locked architectural decisions are in [`docs/DECISIONS.md`](docs/DECISIONS.md). The context-optimization boundary is recorded in [`docs/adr/0007-context-optimization-boundary.md`](docs/adr/0007-context-optimization-boundary.md).
 
 ## Team model
 
@@ -61,6 +62,14 @@ Run workstation diagnostics after building:
 npm run cc:doctor
 ```
 
+Prepare a repository file as context after building. Reads are scoped to the supplied root and sensitive/state paths are blocked:
+
+```bash
+node packages/cli/dist/index.js compress README.md --root .
+```
+
+That command is lossless/conservative by default. `--aggressive` is an explicit opt-in for content where removing comments/extra whitespace is known to be acceptable. Token counts shown by this local optimizer are estimates, not provider billing or quota data.
+
 Do not enable unattended paid-client execution until the appropriate `cc harness-smoke` checks pass on that workstation.
 
 ## Documentation
@@ -72,7 +81,7 @@ Start with [`docs/README.md`](docs/README.md). Key documents include:
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system design and boundaries.
 - [`docs/IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md) — v0.1 plan and release definition.
 - [`docs/AUTHENTICATION.md`](docs/AUTHENTICATION.md) — credential and subscription/API boundaries.
-- [`docs/MCP-CATALOG.md`](docs/MCP-CATALOG.md) — official MCP strategy.
+- [`docs/MCP-CATALOG.md`](docs/MCP-CATALOG.md) — MCP strategy and provenance/activation rules.
 - [`docs/WORKSTATION-VALIDATION.md`](docs/WORKSTATION-VALIDATION.md) — live-client validation runbook.
 - [`docs/adr/`](docs/adr/) — architecture decision records.
 
@@ -81,6 +90,7 @@ Start with [`docs/README.md`](docs/README.md). Key documents include:
 - `.apm/` is canonical source for reusable agent/skill pack content in this repository.
 - `apm.yml` declares package targets/dependencies.
 - `apm.lock.yaml` and harness-specific projections are generated/materialized state and are committed for reproducibility; do not hand-edit the lockfile.
+- `config/mcp-catalog.yaml` is Code Conductor's policy-driven MCP catalog. `.github/mcp.json` is a minimal Copilot CLI repository configuration, not a second catalog.
 - Git is code-state truth; GitHub is PR/CI/review/merge truth.
 - Code Conductor run/evidence state is runtime truth, not a replacement for Git/GitHub.
 

@@ -1,6 +1,7 @@
 version: 1
 policy:
   official_only_by_default: true
+  allow_code_conductor_first_party: true
   minimum_required_tools: true
   writes_require_explicit_profile_permission: true
   separately_billed_api_disabled_by_default: true
@@ -98,8 +99,9 @@ servers:
 
   context-optimizer:
     publisher: Code Conductor
-    official: true
-    maturity: ga
+    official: false
+    provenance: code_conductor_first_party
+    maturity: experimental
     source: packages/context-optimizer
     transport: stdio
     command: node
@@ -107,5 +109,4 @@ servers:
     authentication: none
     default_access: read
     profiles: [context-optimization, token-reduction]
-    note: High-performance AST/syntax-aware context minification and token compression engine for prompts and ephemeral context blocks.
-
+    note: First-party context-preparation adapter. Lossless mode is the default; aggressive removal is explicit. Local file access is workspace-scoped and sensitive paths are blocked. MCP transport remains experimental pending migration to the official MCP TypeScript SDK and protocol validation before GA.

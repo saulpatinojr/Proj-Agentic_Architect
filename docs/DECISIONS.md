@@ -58,6 +58,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 | D-044 | Repository documentation follows a single-purpose truth model: `README.md` is the entry point, `AGENTS.md` the constitution, `STARTER.md` the continuity handoff, `docs/STATUS.md` the live checkpoint, `docs/README.md` the index, `docs/DECISIONS.md` the durable decision register, and `docs/adr/` the architecture-change record. | LOCKED |
 | D-045 | Third-party GitHub Actions used by maintained workflows are pinned to reviewed immutable commit SHAs, with the corresponding release tag recorded as a comment for readability and deliberate upgrades. | LOCKED |
 | D-046 | Executable package references in the approved MCP catalog must not use floating tags such as `latest`; exact validated versions are reviewed and updated intentionally. | LOCKED |
+| D-047 | Context optimization is a Code Conductor context-preparation capability: conservative/lossless by default, aggressive removal only by explicit opt-in, workspace-root/sensitive-path bounded, provider-neutral, and reported with estimated rather than billing-token telemetry. Its MCP transport is optional/experimental until migrated to the official MCP TypeScript SDK and current protocol validation. See ADR 0007. | LOCKED |
 
 ## Validated implementation facts
 
@@ -72,6 +73,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 | V-007 | Vitest 5.0.0 resolves the prior `@vitest/mocker` advisory in this dependency graph; `npm ci` and `npm audit` report **0 vulnerabilities**. | VALIDATED in GitHub Actions on 2026-09-11. |
 | V-008 | The first GitHub Copilot Gatekeeper review identified MCP pinning, run-artifact permission, glob-matching, and trust-behavior concerns; valid defects were corrected and deliberate fail-closed workstation trust received explicit regression coverage. | VALIDATED through PR #1 review and CI on 2026-09-11. |
 | V-009 | The second GitHub Copilot Gatekeeper review identified non-git GitHub-profile selection, advisory-gate blocking loss, and workstation-state directory permissions; all three were corrected with regression coverage and subsequent CI passed. | VALIDATED through PR #1 re-review and CI on 2026-09-11. |
+| V-010 | The post-foundation context-optimizer retrofit preserves the feature inside Code Conductor's existing orchestration/MCP/security boundaries. Its reviewed implementation head passes **61 tests across 14 files**, TypeScript build/typecheck, `cc validate`, npm audit with **0 vulnerabilities**, APM audit, dependency review, CodeQL with no new alerts, and GitGuardian with no secrets detected; Copilot review findings were addressed and resolved. | VALIDATED through PR #6 and GitHub checks on 2026-09-12. |
 
 ## Items requiring workstation/runtime validation before subscription-backed execution
 
@@ -82,6 +84,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 | W-003 | Confirm current VS Code/AHP harness capabilities and authenticated MCP constraints on the installed VS Code release; keep all such integration behind adapters. | VALIDATE |
 | W-004 | Confirm official MCP endpoint/toolset/auth behavior for each project profile before granting any write-capable runtime authority. | VALIDATE |
 | W-005 | Confirm exact installed CLI permission/sandbox flags for Codex, Claude, and Kiro before Code Conductor enables modifying execution through that harness; Antigravity remains interactive pending ADR 0004. | VALIDATE |
+| W-006 | Validate the context optimizer's optional MCP adapter against the official MCP TypeScript SDK/current protocol before promoting that adapter beyond experimental; direct package/CLI use may proceed under ADR 0007 boundaries. | VALIDATE |
 
 ## Open implementation choices
 

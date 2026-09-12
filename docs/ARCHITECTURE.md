@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Code Conductor is a VS Code-centered, multi-provider software-engineering team runtime. It coordinates specialized agents, official vendor harnesses, APM-managed Agent Packs, official MCP tools/reference sources, Git worktrees, deterministic validation, and GitHub PR governance.
+Code Conductor is a VS Code-centered, multi-provider software-engineering team runtime. It coordinates specialized agents, official vendor harnesses, APM-managed Agent Packs, official MCP tools/reference sources, safe context preparation, Git worktrees, deterministic validation, and GitHub PR governance.
 
 ## System boundaries
 
@@ -21,6 +21,7 @@ Code Conductor Core owns:
 - dependency/task DAG
 - bounded retries and escalation
 - worktree ownership
+- context selection/preparation policy
 - evidence aggregation
 - disagreement arbitration
 - readiness/merge recommendation
@@ -53,6 +54,23 @@ Microsoft APM is responsible for reusable agent context packaging and dependency
 
 Code Conductor consumes APM; it does not replace APM.
 
+### Context-preparation plane
+
+The first-party context optimizer prepares already-selected context before it is handed to a harness. It does **not** select agents, decide what evidence is authoritative, or bypass repository/harness policy.
+
+Its boundaries are:
+
+- conservative/lossless mode by default;
+- explicit aggressive mode only when comment/whitespace removal is acceptable;
+- workspace-root and sensitive-file enforcement before local file reads;
+- provider-neutral core output;
+- approximate token-reduction telemetry, never vendor billing/quota truth;
+- private local telemetry and time-bounded in-memory original-content cache;
+- direct package/CLI use is the primary v0.1 integration path;
+- MCP is an optional experimental interoperability adapter until official SDK/current-protocol validation is complete.
+
+This component can later become a runtime preflight step for context budgets without changing the orchestration ownership model.
+
 ### Tool/reference plane
 
 MCP and deterministic CLIs expose tools/resources. They do not choose agents or own orchestration.
@@ -66,6 +84,8 @@ Initial official catalog focus:
 - AWS
 - Google Cloud
 - Perplexity only when automated API-backed research is explicitly enabled
+
+Code Conductor may also expose approved **first-party** MCP adapters. They are explicitly distinguished from vendor-official servers and remain profile-driven/minimal.
 
 ### Change-control plane
 
@@ -141,6 +161,11 @@ VS Code
   +-- Code Conductor Core / CLI
          |
          +-- Policy + Risk + DAG + Evidence
+         +-- Context Preparation
+         |      +-- lossless default
+         |      +-- explicit aggressive mode
+         |      +-- workspace/sensitive-path boundary
+         |
          +-- Harness Adapters
          |      +-- Copilot/GitHub
          |      +-- Claude Code
@@ -190,7 +215,7 @@ Free-form agent prose may be attached as evidence, but runtime decisions must be
 4. structured run evidence/findings
 5. model recommendation/confidence
 
-No model wins merely because it is more capable or expensive.
+No model wins merely because it is more capable or expensive. Context optimization must preserve this ordering; it may reduce transport size but may not discard higher-precedence meaning.
 
 ## Authentication boundary
 
@@ -218,3 +243,5 @@ No always-on cloud control plane is required for v0.1.
 - building a custom MCP standard
 - autonomous production deployment without policy/human gates
 - hard-coding current model version names into core orchestration logic
+- treating heuristic token estimates as billing/quota truth
+- stripping instructions/comments by default for the sake of a compression percentage
