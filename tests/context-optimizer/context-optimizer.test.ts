@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -57,10 +57,23 @@ describe('Context Optimizer', () => {
       expect(aggressive).toContain('required_version = ">= 1.0.0"');
     });
 
-    it('only removes Markdown HTML comments in aggressive mode', () => {
+    it('only removes closed Markdown HTML comments in aggressive mode', () => {
       const input = '# Title\n\n<!-- hidden requirement -->\n\nParagraph text.\n';
       expect(minifyPayload(input, '.md')).toBe(input);
       expect(minifyPayload(input, '.md', 'aggressive')).not.toContain('<!-- hidden requirement -->');
+    });
+
+    it('preserves unterminated Markdown comment input instead of truncating content', () => {
+      const input = '# Title\n\n<!-- incomplete requirement\ncritical text\n';
+      const aggressive = minifyPayload(input, '.md', 'aggressive');
+      expect(aggressive).toContain('<!-- incomplete requirement');
+      expect(aggressive).toContain('critical text');
+    });
+
+    it('handles repeated closed Markdown comments without regular-expression backtracking', () => {
+      const input = `${Array.from({ length: 100 }, (_, index) => `<!-- comment ${index} -->`).join('\n')}\n# Keep me\n`;
+      const aggressive = minifyPayload(input, '.md', 'aggressive');
+      expect(aggressive).toBe('# Keep me');
     });
   });
 
