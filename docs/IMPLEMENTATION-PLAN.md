@@ -2,13 +2,13 @@
 
 ## Goal
 
-Deliver a working orchestration system for VS Code that coordinates existing subscription-backed AI clients and official platform integrations rather than recreating them.
+Deliver a working orchestration system for VS Code that coordinates existing subscription-backed AI clients and official platform integrations rather than recreating them. The v0.1 design remains workstation-first, provider-neutral, evidence-driven, and safe to extend.
 
 ## Architecture layers
 
 ### 1. Cockpit
 
-VS Code is the primary operator UI. A thin Code Conductor extension will expose Team, Runs, Gates, Connections, Packs, and Usage views and deep-link into native agent sessions, terminals, diffs, Source Control, and GitHub PR tooling.
+VS Code is the primary operator UI. A thin Code Conductor extension exposes Team, Runs, Gates, Connections, Packs, and Usage views and deep-links into native agent sessions, terminals, diffs, Source Control, and GitHub PR tooling.
 
 ### 2. Runtime control plane
 
@@ -21,6 +21,7 @@ Code Conductor Core owns:
 - role and stance assignment
 - authority checks
 - bounded retry/escalation
+- context-selection/preparation policy
 - evidence aggregation
 - disagreement arbitration
 - merge/readiness decisions
@@ -35,28 +36,42 @@ Initial supported execution lanes:
 - Claude Code
 - OpenAI Codex
 - Kiro CLI
-- Google Antigravity CLI
+- Google Antigravity
 - Perplexity research: manual Pro-client mode plus optional official MCP/API mode
 
 Prefer official CLI/headless interfaces for orchestrated work where officially supported. Preserve each vendor's native authentication boundary. AHP may be used where appropriate, but only behind a replaceable adapter.
 
-### 4. Package plane
+### 4. Context-preparation plane
+
+The first-party context optimizer prepares context already selected by Code Conductor. It is not a scheduler and it does not decide what evidence is authoritative.
+
+- lossless/conservative is the default;
+- valid JSON may be compacted semantically;
+- comment/whitespace removal for other content requires explicit aggressive mode;
+- file reads are workspace-root scoped after canonical/symlink resolution;
+- sensitive/state/credential paths and oversized/non-regular files are denied;
+- local token counts are estimates for relative telemetry, never billing/quota truth;
+- core output is provider-neutral;
+- direct package/CLI integration is primary for v0.1;
+- the MCP transport is optional and remains experimental until official MCP TypeScript SDK/current-protocol validation is complete.
+
+### 5. Package plane
 
 Microsoft APM is authoritative for reusable agent-pack dependency/distribution/integrity concerns.
 
 - `apm.yml` is the project manifest.
 - `apm.lock.yaml` is generated and must never be hand-edited.
-- `apm-policy.yml` will control allowed packages/MCPs once the first approved catalog is established.
-- `.apm/` is canonical package source when this repo begins publishing its own packs.
-- Copilot/Claude/Codex/Kiro/Antigravity target directories are materialized projections.
+- `apm-policy.yml` controls allowed package/MCP policy.
+- `.apm/` is canonical package source for reusable agents/skills.
+- Copilot/Claude/Codex/Kiro/Antigravity/Agent Skills target directories are materialized projections.
 
 Pinned targets for the foundation are Copilot, Claude, Codex, Kiro, Antigravity, and converged Agent Skills.
 
-### 5. Tool/reference plane
+### 6. Tool/reference plane
 
-Only official or explicitly approved MCPs are part of the initial catalog. Enable them per repository profile, not globally by default.
+Only vendor-official or explicitly approved Code Conductor first-party MCPs belong in the catalog. Enable them per repository profile, not globally by default.
 
-Initial catalog candidates:
+Initial catalog:
 
 - GitHub official MCP
 - Microsoft Learn official MCP
@@ -66,10 +81,13 @@ Initial catalog candidates:
 - AWS official managed/local MCP tooling when an AWS project requires it
 - Google Cloud managed MCP tooling when a GCP project requires it
 - Perplexity official MCP only when API billing is explicitly enabled
+- Code Conductor context optimizer only under its explicit first-party profile while the adapter remains experimental
 
 MCP provides tools/resources. It does not schedule the team.
 
-### 6. Change plane
+GitHub Copilot has a separate configuration boundary: `.github/mcp.json` is minimal repository-scoped Copilot CLI configuration; GitHub.com Copilot code-review/cloud MCP servers are configured through repository settings and built-in GitHub MCP capability rather than a custom token-minter workflow.
+
+### 7. Change plane
 
 Git owns code state. GitHub owns repository, PR, Actions, review, and merge state.
 
@@ -123,7 +141,7 @@ Determines objective-level readiness based on structured evidence. Does not bypa
 
 ## Structured contracts
 
-Implement JSON Schema and TypeScript types for:
+Core contracts are:
 
 - `TaskEnvelope`
 - `AgentAssignment`
@@ -135,7 +153,7 @@ Implement JSON Schema and TypeScript types for:
 - `MergeDecision`
 - `RunManifest`
 
-Each result must record at least task id, agent id, role, stance, provider, harness, billing channel, status, changes, tests, evidence, findings, risks, blockers, and recommendation.
+Each result records task id, agent id, role, stance, provider, harness, billing channel, status, changes, tests, evidence, findings, risks, blockers, and recommendation.
 
 ## Authentication design
 
@@ -144,23 +162,23 @@ Code Conductor must not store consumer OAuth tokens or impersonate vendor client
 - GitHub/Copilot: official GitHub/VS Code authentication.
 - Claude Code: Claude subscription authentication for Max; warn when API-key environment variables could change billing behavior.
 - Codex: ChatGPT subscription authentication where supported.
-- Kiro: Kiro Pro official authentication; use supported Kiro CLI/API-key mechanism for headless subscription-credit execution when configured.
+- Kiro: Kiro Pro official authentication; use supported Kiro CLI mechanisms for subscription execution when configured.
 - Antigravity: official Google sign-in/keyring flow.
 - Perplexity: Pro consumer login for manual mode; official API key only for explicitly enabled MCP automation.
 
-`cc doctor` will detect relevant client availability, auth status where safely discoverable, conflicting API-key environment variables, repository trust, Git state, APM state, MCP health, and sandbox capability. It must never print secret values.
+`cc doctor` detects relevant client availability, auth status where safely discoverable, conflicting API-key environment variables, repository trust, Git state, APM state, MCP health, and sandbox capability. It never prints secret values.
 
 ## CLI-first execution decision
 
-Yes: CLI/headless clients become the standard machine-facing adapters where officially supported because they are composable, observable, scriptable, and can run independently of UI focus. The VS Code extension remains the human cockpit.
+CLI/headless clients are the standard machine-facing adapters where officially supported because they are composable, observable, scriptable, and can run independently of UI focus. The VS Code extension remains the human cockpit.
 
 Exceptions are capability-driven:
 
-- GitHub Copilot/GitHub workflow operations use the GitHub-native surface that best exposes PR/review/Actions semantics, not CLI merely for uniformity.
+- GitHub Copilot/GitHub workflow operations use GitHub-native PR/review/Actions semantics.
 - Perplexity Pro remains manual unless official paid MCP/API access is explicitly enabled.
 - Interactive vendor clients remain available for debugging, takeover, and human collaboration.
 
-## Repository layout target
+## Repository layout
 
 ```text
 Proj-Agentic_Architect/
@@ -168,8 +186,8 @@ Proj-Agentic_Architect/
 ├── STARTER.md
 ├── README.md
 ├── apm.yml
-├── apm.lock.yaml                 # generated later
-├── apm-policy.yml                # add with approved catalog
+├── apm.lock.yaml
+├── apm-policy.yml
 ├── apps/
 │   └── vscode/
 ├── packages/
@@ -177,33 +195,32 @@ Proj-Agentic_Architect/
 │   ├── cli/
 │   ├── schemas/
 │   ├── policy/
+│   ├── runtime/
 │   ├── evidence/
+│   ├── gates/
 │   ├── git/
+│   ├── workstation/
+│   ├── context-optimizer/
 │   ├── mcp/
 │   ├── apm-adapter/
+│   ├── github-gate/
 │   └── adapters/
-│       ├── copilot-github/
-│       ├── claude/
-│       ├── codex/
-│       ├── kiro/
-│       ├── antigravity/
-│       └── perplexity/
 ├── config/
 │   ├── capabilities.yaml
 │   ├── roles.yaml
 │   ├── risk.yaml
 │   ├── authorities.yaml
-│   └── references.yaml
+│   ├── references.yaml
+│   ├── gates.yaml
+│   └── mcp-catalog.yaml
 ├── .apm/
+├── .agents/
+├── .github/
 │   ├── agents/
-│   ├── instructions/
 │   ├── skills/
-│   └── hooks/
+│   ├── workflows/
+│   └── mcp.json
 ├── tests/
-│   ├── unit/
-│   ├── integration/
-│   ├── security/
-│   └── e2e/
 └── docs/
     ├── IMPLEMENTATION-PLAN.md
     ├── ARCHITECTURE.md
@@ -214,24 +231,24 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 
 ## Implementation phases
 
-### Phase 0 — Foundation
+### Phase 0 — Foundation — implemented
 
-- repository constitution
-- APM manifest and explicit targets
-- Codex `STARTER.md`
+- repository constitution and decision register
+- APM manifest/lock/policy and explicit targets
+- `STARTER.md`
 - architecture/implementation plan
-- CI/branch strategy proposal
+- CI and repository governance baseline
 
-### Phase 1 — Contracts and core
+### Phase 1 — Contracts and core — implemented baseline
 
-- TypeScript monorepo/workspace setup
+- TypeScript workspace
 - schemas and validation
 - task state machine
 - policy/risk engine
 - capability registry
-- structured logging
+- structured evidence/run persistence
 
-### Phase 2 — Local execution
+### Phase 2 — Local execution — implemented baseline, workstation validation next
 
 - CLI `cc`
 - `cc doctor`
@@ -240,50 +257,62 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - Codex adapter
 - Claude adapter
 - Kiro adapter
-- Antigravity adapter
+- Antigravity safety boundary
+- workstation trust/smoke validation
+- context-preparation package/CLI with lossless default and explicit aggressive mode
 
-### Phase 3 — Package/tool integration
+### Phase 3 — Package/tool integration — implemented baseline, live validation next
 
 - APM adapter
 - approved MCP catalog
 - selective MCP activation profiles
+- vendor-official vs approved first-party provenance
 - official-reference policies
 - pack compilation/materialization validation
+- context-optimizer experimental MCP adapter; official SDK/current-protocol migration remains a pre-GA task
 
-### Phase 4 — GitHub Gatekeeper
+### Phase 4 — GitHub Gatekeeper — implemented baseline, dogfood next
 
 - PR state adapter
 - Actions/status inspection
 - Copilot review/re-review workflow
 - required gate aggregation
+- CodeQL and dependency-review workflows
 - human merge boundary
+- repository-specific `.github/skills/code-review` instructions
 
-### Phase 5 — VS Code cockpit
+### Phase 5 — VS Code cockpit — thin foundation implemented, interactive validation next
 
 - Team
 - Runs
 - Gates
 - Connections
 - Packs
-- Usage
+- Usage, including clearly labeled estimated context-optimization telemetry
 
 No replacement chat UI.
 
-### Phase 6 — Evaluation
+### Phase 6 — Evaluation / current next phase
 
-Build deterministic fixtures and compare:
+Run the first real workstation dogfood sequence:
 
-- single-agent baseline
-- builder + reviewer
-- builder + independent challenger
-- full R2/R3 team
+1. sync/verify `main` and run `cc doctor`;
+2. authenticate supported subscription-backed clients using official mechanisms;
+3. smoke-test Codex, Claude Code, and Kiro in read mode, then isolated modify mode;
+4. verify selected MCP/reference profiles without granting unnecessary write authority;
+5. exercise context preparation in lossless mode on representative repository inputs; test aggressive mode only on content where comment removal is explicitly acceptable;
+6. execute a real R1 task through Code Conductor using an isolated worktree and deterministic validation;
+7. raise the same scenario to R2 with a different-provider challenger plus GitHub Gatekeeper review/re-review;
+8. capture structured evidence, resolve defects, and validate the VS Code cockpit against the run;
+9. migrate/validate the context optimizer MCP adapter with the official MCP TypeScript SDK/current protocol before calling that adapter GA;
+10. prepare the v0.1 release candidate.
 
-Track task success, defects caught, false positives, retries, latency, subscription/API lane, API spend, and human interventions.
+Track task success, defects caught, false positives, retries, latency, subscription/API lane, API spend, estimated context reduction, and human interventions. Do not treat heuristic token estimates as vendor cost measurements.
 
 ## First dogfood scenario
 
-Use this repository itself. Codex should implement Phase 1 on an isolated branch. A different provider reviews the resulting changes. GitHub Gatekeeper then reviews the PR. The run is complete only when structured evidence and deterministic tests agree that the foundation is ready.
+Use this repository itself. The first real R1/R2 run must exercise the already-built runtime rather than manually reproducing its behavior. A modifying builder works in an isolated worktree, an independent role reviews/challenges it, deterministic gates run, GitHub Gatekeeper reviews the PR, and Code Conductor captures the evidence/readiness result.
 
 ## Release gate for v0.1
 
-A clean workstation must be able to clone the repo, install/verify APM targets, authenticate supported official clients, run `cc doctor`, bootstrap another repo, execute an R1/R2 task using independent roles, isolate changes, run deterministic checks, create a GitHub PR, surface GitHub-native review, collect structured evidence, and enforce human approval where policy requires it.
+A clean workstation must be able to clone the repo, install/verify APM targets, authenticate supported official clients, run `cc doctor`, safely prepare bounded context, bootstrap another repo, execute an R1/R2 task using independent roles, isolate changes, run deterministic checks, create a GitHub PR, surface GitHub-native review, collect structured evidence, and enforce human approval where policy requires it. The context optimizer's direct/CLI path may ship in v0.1 when these boundaries pass; its MCP adapter remains experimental until the official-SDK/current-protocol gate is satisfied.
