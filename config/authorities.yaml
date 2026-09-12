@@ -1,0 +1,25 @@
+version: 1
+
+authorities:
+  observe: 0
+  recommend: 1
+  modify_worktree: 2
+  review: 3
+  block: 4
+  execute_validation: 5
+  resolve_disagreement: 6
+  recommend_merge: 7
+  approve: 8
+  merge: 9
+  deploy: 10
+
+invariants:
+  - implementer_cannot_self_review
+  - implementer_cannot_self_approve
+  - implementer_cannot_self_merge
+  - reviewers_are_read_only_by_default
+  - security_reviewer_may_block_without_write
+  - arbiter_may_resolve_disagreement_without_write
+  - finalizer_may_recommend_merge_without_approval
+  - r3_and_r4_require_human_approval
+  - r4_requires_human_approval_before_external_side_effect

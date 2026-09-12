@@ -1,0 +1,28 @@
+{
+  "name": "@code-conductor/root",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cc:validate": "npm run build && node packages/cli/dist/index.js validate .",
+    "cc:doctor": "npm run build && node packages/cli/dist/index.js doctor .",
+    "cc:plan": "npm run build && node packages/cli/dist/index.js plan --repo . --risk R1 --objective 'Validate Code Conductor planning'"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^5.0.0"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "name": "code-conductor-vscode",
+  "displayName": "Code Conductor",
+  "description": "VS Code cockpit for the Code Conductor multi-provider agent engineering team.",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "vscode": "^1.105.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onView:codeConductor.team", "onCommand:codeConductor.doctor"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "codeConductor.refresh", "title": "Code Conductor: Refresh" },
+      { "command": "codeConductor.doctor", "title": "Code Conductor: Doctor" },
+      { "command": "codeConductor.validate", "title": "Code Conductor: Validate Repository" },
+      { "command": "codeConductor.plan", "title": "Code Conductor: Plan Task" },
+      { "command": "codeConductor.openDecisions", "title": "Code Conductor: Open Decision Register" }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "codeConductor", "title": "Code Conductor", "icon": "media/conductor.svg" }
+      ]
+    },
+    "views": {
+      "codeConductor": [
+        { "id": "codeConductor.team", "name": "Team" },
+        { "id": "codeConductor.runs", "name": "Runs" },
+        { "id": "codeConductor.gates", "name": "Gates" },
+        { "id": "codeConductor.connections", "name": "Connections" },
+        { "id": "codeConductor.packs", "name": "Packs" },
+        { "id": "codeConductor.usage", "name": "Usage" }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        { "command": "codeConductor.refresh", "when": "view =~ /codeConductor\\./", "group": "navigation" }
+      ]
+    }
+  },
+  "dependencies": { "yaml": "^2.8.0" },
+  "devDependencies": { "@types/vscode": "^1.105.0" }
+}

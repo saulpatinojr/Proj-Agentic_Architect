@@ -1,0 +1,50 @@
+name: Code Conductor CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'bootstrap/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'docs/**'
+      - 'chore/**'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Dependency audit (high/critical gate)
+        run: npm audit --audit-level=high
+
+      - name: Typecheck and build
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Validate repository policy
+        run: node packages/cli/dist/index.js validate .
+
+      - name: Verify lockfiles are present
+        shell: bash
+        run: |
+          test -f package-lock.json
+          test -f apm.lock.yaml

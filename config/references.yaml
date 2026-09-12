@@ -1,0 +1,40 @@
+version: 1
+
+authoritative_sources:
+  github:
+    - docs.github.com
+    - github.com/github
+  microsoft:
+    - learn.microsoft.com
+    - code.visualstudio.com
+    - microsoft.github.io/apm
+  terraform:
+    - developer.hashicorp.com
+    - registry.terraform.io
+    - github.com/hashicorp
+  ansible:
+    - docs.ansible.com
+    - github.com/ansible
+  aws:
+    - docs.aws.amazon.com
+    - aws.amazon.com
+  gcp:
+    - cloud.google.com
+    - developers.google.com
+  openai:
+    - openai.com
+    - help.openai.com
+    - developers.openai.com
+  anthropic:
+    - docs.anthropic.com
+    - support.claude.com
+  kiro:
+    - kiro.dev
+  perplexity:
+    - docs.perplexity.ai
+    - perplexity.ai
+
+policy:
+  research_discovery_may_use_non_authoritative_sources: true
+  implementation_decisions_should_be_reconfirmed_against_official_sources: true
+  blocking_findings_require_evidence: true

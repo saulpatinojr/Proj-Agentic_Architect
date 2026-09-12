@@ -1,0 +1,24 @@
+# APM dependency cache/materialization workspace
+apm_modules/
+
+# Code Conductor local runtime state
+.code-conductor/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node/TypeScript
+node_modules/
+dist/
+coverage/
+
+# Editors/OS
+.DS_Store
+Thumbs.db

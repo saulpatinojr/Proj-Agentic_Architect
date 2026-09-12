@@ -1,0 +1,23 @@
+name: APM materialization (manual maintainer operation)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-materialization:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: microsoft/apm-action@d723bb64ed70c135bbaf87d126b721dd2dae0439 # v1.10.0
+        with:
+          apm-version: '0.30.0'
+          setup-only: true
+      - name: Explain maintainer workflow
+        run: |
+          echo "APM materialization is intentionally not written back by CI."
+          echo "Maintainers update canonical .apm/ or apm.yml locally, run 'apm install', commit apm.lock.yaml and projections, then rely on the read-only APM audit gate."
+      - name: Audit current committed state
+        run: apm audit --ci --policy ./apm-policy.yml --no-fail-fast

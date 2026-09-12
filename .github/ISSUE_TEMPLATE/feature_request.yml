@@ -1,0 +1,47 @@
+name: Feature request
+description: Propose a new Code Conductor capability or integration
+title: "feat: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / objective
+      description: Describe the user or engineering problem before proposing the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should be true when this is complete?
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints and boundaries
+      description: Provider, harness, subscription/API, MCP, security, compatibility, or repository constraints.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: References / evidence
+      description: Official documentation, examples, existing ADRs, or related issues.
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Expected risk class
+      options:
+        - R0 - trivial/local
+        - R1 - normal
+        - R2 - important/cross-agent
+        - R3 - high/security/production-relevant
+        - R4 - destructive/external production
+    validations:
+      required: true
+  - type: checkboxes
+    id: governance
+    attributes:
+      label: Architecture impact
+      options:
+        - label: I checked `docs/DECISIONS.md` for relevant locked decisions.
+        - label: I understand a superseding ADR is required if this changes a locked architecture/security/authentication boundary.

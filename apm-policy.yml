@@ -1,0 +1,38 @@
+name: code-conductor-foundation
+version: "0.1"
+enforcement: block
+fetch_failure: block
+
+dependencies:
+  require_pinned_constraint: true
+  max_depth: 20
+
+mcp:
+  self_defined: warn
+  trust_transitive: false
+  transport:
+    allow:
+      - stdio
+      - http
+      - streamable-http
+
+compilation:
+  source_attribution: true
+
+manifest:
+  required_fields:
+    - name
+    - version
+    - description
+    - author
+    - license
+  scripts: allow
+
+unmanaged_files:
+  action: warn
+
+security:
+  integrity:
+    require_hashes: true
+  audit:
+    fail_on_drift: true

@@ -1,0 +1,97 @@
+version: 1
+policy:
+  official_only_by_default: true
+  minimum_required_tools: true
+  writes_require_explicit_profile_permission: true
+  separately_billed_api_disabled_by_default: true
+
+servers:
+  microsoft-learn:
+    publisher: Microsoft
+    official: true
+    maturity: ga
+    source: https://learn.microsoft.com/en-us/training/support/mcp
+    transport: streamable-http
+    endpoint: https://learn.microsoft.com/api/mcp
+    authentication: none
+    default_access: read
+    profiles: [microsoft-reference, azure, dotnet]
+
+  github:
+    publisher: GitHub
+    official: true
+    maturity: ga
+    source: https://github.com/github/github-mcp-server
+    apm_registry_id: io.github.github/github-mcp-server
+    authentication: oauth
+    default_access: read
+    profiles: [github]
+
+  terraform:
+    publisher: HashiCorp
+    official: true
+    maturity: ga
+    source: https://developer.hashicorp.com/terraform/mcp-server
+    repository: https://github.com/hashicorp/terraform-mcp-server
+    authentication: none_for_public_registry
+    default_access: read
+    profiles: [terraform]
+    note: HCP Terraform and Terraform Enterprise operations require separate authenticated configuration and stronger authority policy.
+
+  ansible:
+    publisher: Ansible
+    official: true
+    maturity: technical-preview
+    source: https://docs.ansible.com/projects/vscode-ansible/mcp/
+    transport: stdio
+    command: npx
+    args: [-y, '@ansible/ansible-mcp-server@26.6.0', --stdio]
+    authentication: local-process
+    default_access: read
+    profiles: [ansible]
+    note: Version pinned from the official npm package on 2026-09-11. Deterministic ansible-lint and execution controls remain release authority while this MCP is technical preview.
+
+  azure:
+    publisher: Microsoft
+    official: true
+    maturity: preview
+    source: https://github.com/Azure/azure-mcp
+    transport: stdio
+    command: npx
+    args: [-y, '@azure/mcp@3.0.0-beta.42', server, start]
+    authentication: entra-via-official-azure-tools
+    default_access: read
+    profiles: [azure]
+    note: Executable npm version pinned on 2026-09-11 rather than resolving @latest at runtime; update only through a reviewed catalog change.
+
+  aws:
+    publisher: AWS
+    official: true
+    maturity: ga
+    source: https://docs.aws.amazon.com/signin/latest/userguide/aws-mcp-server.html
+    transport: http
+    endpoint_template: https://aws-mcp.<region>.api.aws/mcp
+    authentication: oauth-2.1-aws-sign-in
+    default_access: read
+    profiles: [aws]
+
+  gcp:
+    publisher: Google Cloud
+    official: true
+    maturity: ga
+    source: https://docs.cloud.google.com/mcp/overview
+    authentication: google-cloud-iam
+    required_base_role: roles/mcp.toolUser
+    default_access: read
+    profiles: [gcp]
+
+  perplexity:
+    publisher: Perplexity
+    official: true
+    maturity: ga
+    source: https://docs.perplexity.ai/guides/mcp-server
+    authentication: api-key
+    separately_billed_api: true
+    enabled_by_default: false
+    default_access: read
+    profiles: [research-automated]

@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible defect in Code Conductor
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include secrets, tokens, cookies, credentials, or private environment data. Use the repository security policy for vulnerabilities.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Minimal steps, command, task envelope, or fixture that reproduces the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, VS Code, Node, APM, and relevant official client versions. Do not include credential values.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Sanitized logs, test output, run ID, commit/PR, or screenshots.
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Estimated risk
+      options:
+        - R0 - trivial/local
+        - R1 - normal
+        - R2 - important/cross-agent
+        - R3 - high/security/production-relevant
+        - R4 - destructive/external production
+    validations:
+      required: true
