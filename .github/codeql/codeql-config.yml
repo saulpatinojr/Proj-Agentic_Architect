@@ -1,0 +1,11 @@
+name: "Code Conductor CodeQL config"
+
+# Exclude generated agent harness projections, lockfiles, packaging, and archive workspaces.
+paths-ignore:
+  - '.claude'
+  - '.agents'
+  - '.apm'
+  - '.codex'
+  - '.kiro'
+  - 'archive work'
+  - 'archive'

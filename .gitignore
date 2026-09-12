@@ -18,7 +18,13 @@ apm_modules/
 node_modules/
 dist/
 coverage/
+*.tsbuildinfo
 
 # Editors/OS
 .DS_Store
 Thumbs.db
+
+# Temporary and archive scratch workspaces (local only)
+archive/
+archive work/
+
