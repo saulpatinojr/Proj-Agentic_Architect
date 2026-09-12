@@ -91,8 +91,22 @@ function mcpList(args: string[]): number { const root = resolve(getOption(args, 
 function apmCheck(rootArg?: string): number { const root = resolve(rootArg ?? '.'); if (!hasCommand('apm')) { console.error('ERROR apm.missing: apm executable is required.'); return 1; } const result = apmAudit(root); process.stdout.write(result.stdout); process.stderr.write(result.stderr); return result.ok ? 0 : 1; }
 function githubGate(args: string[]): number { const root = resolve(getOption(args, '--repo') ?? '.'); if (!hasCommand('gh')) { console.error('ERROR github.missing: gh executable is required.'); return 1; } const status = pullRequestStatus(root); process.stdout.write(status.stdout); process.stderr.write(status.stderr); if (!status.ok) return 1; const checks = pullRequestChecks(root); process.stdout.write(checks.stdout); process.stderr.write(checks.stderr); return checks.ok ? 0 : 1; }
 function contextStats(): number { const optimizer = new ContextOptimizer(); console.log(JSON.stringify(optimizer.getStats(), null, 2)); return 0; }
-function compressFile(filePath?: string): number { if (!filePath) { console.error('ERROR compress.file_required: Specify a file path to compress.'); return 2; } const optimizer = new ContextOptimizer(); const { content, result } = optimizer.readCompressedFile(resolve(filePath), 'cli'); console.log(`Original tokens: ${result.originalTokens}\nOptimized tokens: ${result.optimizedTokens}\nTokens saved: ${result.tokensSaved} (${result.savingsPercent}%)\nOverhead: ${result.overheadMs}ms\nContext ID: ${result.contextId}\n\n--- Compressed Content ---\n${content}`); return 0; }
-function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nrun defaults to dry-run; pass --execute only after harness-smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.'); }
+function compressFile(args: string[]): number {
+  const filePath = args[0];
+  if (!filePath) { console.error('ERROR compress.file_required: Specify a file path to prepare as context.'); return 2; }
+  const root = resolve(getOption(args, '--root') ?? '.');
+  const optimizationMode = args.includes('--aggressive') ? 'aggressive' as const : 'lossless' as const;
+  const optimizer = new ContextOptimizer({ allowedRoots: [root] });
+  try {
+    const { content, result } = optimizer.readCompressedFile(resolve(filePath), 'cli', optimizationMode);
+    console.log(`Mode: ${result.mode}\nEstimated original tokens: ${result.originalTokens}\nEstimated optimized tokens: ${result.optimizedTokens}\nEstimated tokens saved: ${result.tokensSaved} (${result.savingsPercent}%)\nOverhead: ${result.overheadMs}ms\nContext ID: ${result.contextId}\n\n--- Prepared Content ---\n${content}`);
+    return 0;
+  } catch (error) {
+    console.error(`ERROR compress.read_failed: ${error instanceof Error ? error.message : String(error)}`);
+    return 1;
+  }
+}
+function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nrun defaults to dry-run; pass --execute only after harness-smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.\n\ncompress <file> defaults to lossless preparation scoped to --root <dir> (default: current directory). Use --aggressive only when comment/whitespace removal is explicitly acceptable.'); }
 
 const [command = 'help', ...args] = process.argv.slice(2); let exitCode = 0;
 switch (command) {
@@ -105,9 +119,8 @@ switch (command) {
   case 'apm-audit': exitCode = apmCheck(args[0]); break;
   case 'github-gate': exitCode = githubGate(args); break;
   case 'context-stats': exitCode = contextStats(); break;
-  case 'compress': exitCode = compressFile(args[0]); break;
+  case 'compress': exitCode = compressFile(args); break;
   case 'version': case '--version': case '-v': console.log(VERSION); break;
   default: usage(); exitCode = command === 'help' || command === '--help' || command === '-h' ? 0 : 2;
 }
 process.exitCode = exitCode;
-
