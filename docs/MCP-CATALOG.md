@@ -53,7 +53,7 @@ profiles:
     mcp:
       - github
 
-  context-evaluation:
+  context-optimization:
     mcp:
       - context-optimizer
 ```
