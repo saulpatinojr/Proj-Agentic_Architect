@@ -57,6 +57,31 @@ export function estimateTokens(content: string): number {
   return Math.max(1, Math.ceil(trimmed.length / 4));
 }
 
+function removeClosedHtmlComments(content: string): string {
+  let cursor = 0;
+  let output = '';
+
+  while (cursor < content.length) {
+    const start = content.indexOf('<!--', cursor);
+    if (start < 0) {
+      output += content.slice(cursor);
+      break;
+    }
+
+    output += content.slice(cursor, start);
+    const end = content.indexOf('-->', start + 4);
+    if (end < 0) {
+      // Preserve malformed/unterminated input rather than truncating potentially
+      // meaningful instructions in the aggressive path.
+      output += content.slice(start);
+      break;
+    }
+    cursor = end + 3;
+  }
+
+  return output;
+}
+
 export function minifyPayload(content: string, typeOrExt: string, mode: OptimizationMode = 'lossless'): string {
   if (!content) return '';
   const ext = (typeOrExt.startsWith('.') ? typeOrExt : `.${typeOrExt}`).toLowerCase();
@@ -94,8 +119,7 @@ export function minifyPayload(content: string, typeOrExt: string, mode: Optimiza
   }
 
   if (ext === '.md') {
-    return content
-      .replace(/<!--[\s\S]*?-->/g, '')
+    return removeClosedHtmlComments(content)
       .split(/\r?\n/)
       .map((line) => line.trimEnd())
       .join('\n')
