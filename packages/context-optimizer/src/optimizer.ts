@@ -300,7 +300,7 @@ export class ContextOptimizer {
       timestampUtc: new Date().toISOString(),
       project,
       tokensOriginal: originalTokens,
-      tokensOptimized,
+      tokensOptimized: optimizedTokens,
       tokensSaved,
       overheadMs,
       mode,
