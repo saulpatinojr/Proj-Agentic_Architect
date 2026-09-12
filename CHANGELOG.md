@@ -13,10 +13,12 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - GitHub Gatekeeper helpers for authentication, PR creation/status, and check inspection.
 - APM 0.30.0 manifest, lockfile, policy, canonical agent/skill source, and materialized Copilot/Claude/Codex/Kiro/Agent Skills projections.
 - Official MCP catalog/configuration foundation.
+- First-party context optimizer package, CLI diagnostics/preparation commands, optional experimental MCP adapter, and VS Code estimated-savings telemetry.
 - Thin VS Code extension foundation with Team, Runs, Gates, Connections, Packs, and Usage views.
-- CI for TypeScript validation, tests, repository-policy validation, APM audit, dependency audit, and lockfile consistency.
+- CI for TypeScript validation, tests, repository-policy validation, APM audit, dependency audit, lockfile consistency, CodeQL, and dependency review.
+- Repository-specific GitHub Copilot code-review skill plus minimal repository-scoped `.github/mcp.json` for compatible Copilot CLI workflows.
 - Repository governance documentation, contribution/security/review policies, templates, CODEOWNERS, Dependabot, EditorConfig, and Git attributes.
-- Regression coverage for deep recursive gate-profile discovery, owner-only worktree directories, invalid structured agent-result payloads, configured role authority projection, independent-provider challenger enforcement, missing GitHub/APM/Git CLI diagnostics, ref-safe task/agent identifiers, rename-aware sensitive-path handling, evidence-store path traversal prevention, and no-scan exact-file gate detection.
+- Regression coverage for deep recursive gate-profile discovery, owner-only worktree directories, invalid structured agent-result payloads, configured role authority projection, independent-provider challenger enforcement, missing GitHub/APM/Git CLI diagnostics, ref-safe task/agent identifiers, rename-aware sensitive-path handling, evidence-store path traversal prevention, no-scan exact-file gate detection, context workspace boundaries, symlink escapes, sensitive/oversized context files, and first-party MCP provenance policy.
 
 ### Changed
 
@@ -36,6 +38,9 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - Git worktree branch components are sanitized against invalid ref forms including repeated dots, leading/trailing dots, and `.lock` suffixes.
 - Git status parsing uses NUL-delimited porcelain output and returns the destination/current path for rename and copy entries.
 - Evidence run-directory names no longer admit path traversal semantics; unsafe external IDs are normalized and digest-suffixed.
+- Context optimization now defaults to lossless/conservative preparation; comment/whitespace removal requires explicit aggressive mode, JSON compaction remains semantically safe, provider-specific cache-control markup was removed, and local token metrics are explicitly estimates.
+- Context-optimizer MCP catalog metadata now distinguishes Code Conductor first-party experimental adapters from vendor-official servers.
+- Replaced the unsupported duplicate `.github/copilot-mcp.json` approach with minimal `.github/mcp.json`; removed the transplanted Copilot setup/token-minter workflow that referenced infrastructure and secrets not owned by this repository.
 - Reconciled Phase 1 tracking: issue #2 is complete and live workstation/R1/R2 validation is tracked in issue #4.
 
 ### Security
@@ -44,7 +49,8 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - Fail-closed structured agent-result parsing and explicit workstation trust before unattended CLI execution.
 - Structured `AgentResult` payloads are validated against the canonical JSON Schema before runtime acceptance.
 - Human approval boundary for high-risk/destructive external operations.
-- Local run/evidence, workstation-trust, and modifying worktree directories/files use owner-only permissions on POSIX systems where applicable.
+- Local run/evidence, workstation-trust, modifying worktree, and context-optimizer telemetry directories/files use owner-only permissions on POSIX systems where applicable.
+- Context file reads are bounded to configured workspace roots after canonical/symlink resolution and reject sensitive/state paths, non-regular files, and oversized inputs.
 - Evidence-store path traversal and rename-based sensitive-file detection are covered by regression tests.
 - Added high/critical dependency audit as a CI gate; the current dependency graph reports zero known npm vulnerabilities.
 - Multiple GitHub Copilot Gatekeeper review rounds were exercised and concrete findings were addressed with targeted regression coverage.
