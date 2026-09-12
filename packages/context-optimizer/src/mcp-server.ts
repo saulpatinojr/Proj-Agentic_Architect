@@ -27,9 +27,10 @@ function parseMode(value: unknown): OptimizationMode {
   throw new Error(`Invalid optimization mode: ${String(value)}`);
 }
 
-function requireString(args: Record<string, unknown>, name: string): string {
+function requireString(args: Record<string, unknown>, name: string, allowEmpty = false): string {
   const value = args[name];
-  if (typeof value !== 'string' || value.length === 0) throw new Error(`${name} must be a non-empty string.`);
+  if (typeof value !== 'string') throw new Error(`${name} must be a string.`);
+  if (!allowEmpty && value.length === 0) throw new Error(`${name} must be a non-empty string.`);
   return value;
 }
 
@@ -90,7 +91,7 @@ export function runMcpServer(): void {
                 type: 'object',
                 additionalProperties: false,
                 properties: {
-                  content: { type: 'string', description: 'Raw content to prepare.' },
+                  content: { type: 'string', description: 'Raw content to prepare. Empty content is valid.' },
                   content_type: { type: 'string', description: 'Content type or extension (for example json, yaml, tf, md).' },
                   project: { type: 'string', description: 'Telemetry label only; it does not change provider behavior.' },
                   mode: { type: 'string', enum: ['lossless', 'aggressive'], default: 'lossless' },
@@ -140,7 +141,7 @@ export function runMcpServer(): void {
 
       try {
         if (toolName === 'compress_context') {
-          const content = requireString(args, 'content');
+          const content = requireString(args, 'content', true);
           const contentType = typeof args.content_type === 'string' ? args.content_type : 'text';
           const project = typeof args.project === 'string' ? args.project : 'vscode';
           const mode = parseMode(args.mode);
