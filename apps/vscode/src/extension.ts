@@ -78,12 +78,11 @@ function usageItems(root?: string): ItemSpec[] {
   return [
     { label: 'Billing policy', description: capabilities?.defaults?.billing_policy ?? 'subscription_first', icon: 'credit-card' },
     { label: 'Separately billed API', description: capabilities?.defaults?.allow_separately_billed_api ? 'enabled' : 'disabled by default', icon: capabilities?.defaults?.allow_separately_billed_api ? 'warning' : 'pass' },
-    { label: 'Context optimizer', description: 'active · AST minification enabled', icon: 'zap' },
-    { label: 'Tokens saved', description: `${savedTokens.toLocaleString()} tokens`, icon: 'graph' },
+    { label: 'Context optimizer', description: 'available · lossless default', tooltip: 'Aggressive comment/whitespace removal is explicit opt-in.', icon: 'zap' },
+    { label: 'Estimated input tokens saved', description: `${savedTokens.toLocaleString()} tokens`, tooltip: 'Approximate characters/4 telemetry; not vendor billing data.', icon: 'graph' },
     { label: 'Quota telemetry', description: 'vendor-native / not stored', icon: 'pulse' },
   ];
 }
-
 
 function runCli(root: string, args: string[], title: string): void {
   const terminal = vscode.window.createTerminal({ name: title, cwd: root });
