@@ -73,6 +73,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 | V-007 | Vitest 5.0.0 resolves the prior `@vitest/mocker` advisory in this dependency graph; `npm ci` and `npm audit` report **0 vulnerabilities**. | VALIDATED in GitHub Actions on 2026-09-11. |
 | V-008 | The first GitHub Copilot Gatekeeper review identified MCP pinning, run-artifact permission, glob-matching, and trust-behavior concerns; valid defects were corrected and deliberate fail-closed workstation trust received explicit regression coverage. | VALIDATED through PR #1 review and CI on 2026-09-11. |
 | V-009 | The second GitHub Copilot Gatekeeper review identified non-git GitHub-profile selection, advisory-gate blocking loss, and workstation-state directory permissions; all three were corrected with regression coverage and subsequent CI passed. | VALIDATED through PR #1 re-review and CI on 2026-09-11. |
+| V-010 | The post-foundation context-optimizer retrofit preserves the feature inside Code Conductor's existing orchestration/MCP/security boundaries. Its reviewed implementation head passes **61 tests across 14 files**, TypeScript build/typecheck, `cc validate`, npm audit with **0 vulnerabilities**, APM audit, dependency review, CodeQL with no new alerts, and GitGuardian with no secrets detected; Copilot review findings were addressed and resolved. | VALIDATED through PR #6 and GitHub checks on 2026-09-12. |
 
 ## Items requiring workstation/runtime validation before subscription-backed execution
 
