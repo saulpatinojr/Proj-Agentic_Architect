@@ -61,7 +61,7 @@ export function selectMcpServers(catalog: McpCatalog, profiles: string[], allowS
   const wanted = new Set(profiles);
   return Object.entries(catalog.servers).filter(([, server]) => {
     const codeConductorFirstParty = server.provenance === 'code_conductor_first_party';
-    const firstPartyAllowed = codeConductorFirstParty && catalog.policy.allow_code_conductor_first_party !== false;
+    const firstPartyAllowed = codeConductorFirstParty && catalog.policy.allow_code_conductor_first_party === true;
     if (!server.official && catalog.policy.official_only_by_default === true && !firstPartyAllowed) return false;
     if (server.separately_billed_api && !allowSeparatelyBilledApi) return false;
     return server.profiles.some((profile) => wanted.has(profile));
