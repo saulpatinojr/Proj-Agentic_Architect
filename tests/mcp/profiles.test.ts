@@ -60,6 +60,17 @@ describe('MCP catalog provenance policy', () => {
     expect(selectMcpServers(catalog, ['context-optimization']).map(([id]) => id)).toEqual(['optimizer']);
   });
 
+  it('blocks Code Conductor first-party servers unless approval is explicit', () => {
+    const catalog: McpCatalog = {
+      version: 1,
+      policy: { official_only_by_default: true },
+      servers: {
+        optimizer: { ...baseServer, official: false, provenance: 'code_conductor_first_party' },
+      },
+    };
+    expect(selectMcpServers(catalog, ['context-optimization'])).toEqual([]);
+  });
+
   it('still blocks unrelated non-official MCP servers by default', () => {
     const catalog: McpCatalog = {
       version: 1,
