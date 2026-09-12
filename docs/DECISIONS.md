@@ -58,6 +58,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 | D-044 | Repository documentation follows a single-purpose truth model: `README.md` is the entry point, `AGENTS.md` the constitution, `STARTER.md` the continuity handoff, `docs/STATUS.md` the live checkpoint, `docs/README.md` the index, `docs/DECISIONS.md` the durable decision register, and `docs/adr/` the architecture-change record. | LOCKED |
 | D-045 | Third-party GitHub Actions used by maintained workflows are pinned to reviewed immutable commit SHAs, with the corresponding release tag recorded as a comment for readability and deliberate upgrades. | LOCKED |
 | D-046 | Executable package references in the approved MCP catalog must not use floating tags such as `latest`; exact validated versions are reviewed and updated intentionally. | LOCKED |
+| D-047 | Context optimization is a Code Conductor context-preparation capability: conservative/lossless by default, aggressive removal only by explicit opt-in, workspace-root/sensitive-path bounded, provider-neutral, and reported with estimated rather than billing-token telemetry. Its MCP transport is optional/experimental until migrated to the official MCP TypeScript SDK and current protocol validation. See ADR 0007. | LOCKED |
 
 ## Validated implementation facts
 
@@ -82,6 +83,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 | W-003 | Confirm current VS Code/AHP harness capabilities and authenticated MCP constraints on the installed VS Code release; keep all such integration behind adapters. | VALIDATE |
 | W-004 | Confirm official MCP endpoint/toolset/auth behavior for each project profile before granting any write-capable runtime authority. | VALIDATE |
 | W-005 | Confirm exact installed CLI permission/sandbox flags for Codex, Claude, and Kiro before Code Conductor enables modifying execution through that harness; Antigravity remains interactive pending ADR 0004. | VALIDATE |
+| W-006 | Validate the context optimizer's optional MCP adapter against the official MCP TypeScript SDK/current protocol before promoting that adapter beyond experimental; direct package/CLI use may proceed under ADR 0007 boundaries. | VALIDATE |
 
 ## Open implementation choices
 
