@@ -15,11 +15,15 @@ describe('contracts schema', () => {
     expect(validateContract('TaskEnvelope', { ...valid, risk: 'R9' }).ok).toBe(false);
   });
 
-  it('validates execution surface on assignments/results without making it mandatory for old stored evidence', () => {
+  it('validates execution surface on assignments/results while preserving legacy evidence without surface', () => {
     const assignment = { id: 'A-1', taskId: 'T-1', agentId: 'builder-kiro', role: 'builder', stance: 'constructive', provider: 'aws', harness: 'kiro', surface: 'acp', billingChannel: 'subscription', authority: ['modify_worktree'], dependsOn: [] };
     expect(validateContract('AgentAssignment', assignment).ok).toBe(true);
+    const { surface: _assignmentSurface, ...legacyAssignment } = assignment;
+    expect(validateContract('AgentAssignment', legacyAssignment).ok).toBe(true);
 
     const result = { taskId: 'T-1', assignmentId: 'A-1', agentId: 'researcher-perplexity', role: 'researcher', stance: 'neutral', provider: 'perplexity', harness: 'perplexity', surface: 'manual', billingChannel: 'manual', status: 'awaiting_external', changes: [], tests: [], evidence: [], findings: [], risks: [], blockers: ['manual'], recommendation: 'human_required' };
     expect(validateContract('AgentResult', result).ok).toBe(true);
+    const { surface: _resultSurface, ...legacyResult } = result;
+    expect(validateContract('AgentResult', legacyResult).ok).toBe(true);
   });
 });
