@@ -10,8 +10,9 @@ Read in this order before making material changes:
 2. `docs/DECISIONS.md` — locked decisions and validated facts.
 3. `docs/STATUS.md` — current checkpoint and immediate next milestone.
 4. `docs/IMPLEMENTATION-PLAN.md` — v0.1 release plan/definition of done.
-5. Relevant domain docs under `docs/` and the applicable ADRs, including ADR 0007 for context preparation.
-6. `CONTRIBUTING.md` before changing branches, APM source, workflows, or governance files.
+5. Relevant domain docs under `docs/` and the applicable ADRs, including ADR 0007 for context preparation, ADR 0008 for the thin-client/startup model, and ADR 0009 for surface-aware harness/provider specialization.
+6. GitHub roadmap issue #7 and the active release/readiness issue #4.
+7. `CONTRIBUTING.md` before changing branches, APM source, workflows, or governance files.
 
 Do not redesign a locked architecture decision from memory or preference. If verified platform evidence requires a change, create a superseding ADR and update the decision register in the same PR.
 
@@ -33,42 +34,56 @@ The repository foundation is implemented rather than architecture-only:
 - CodeQL, dependency-review configuration, repository CI, APM audit, npm lockfile validation, and secret scanning are part of the GitHub governance baseline;
 - repository-scoped Copilot CLI MCP configuration is minimal under `.github/mcp.json`; GitHub.com Copilot MCP configuration remains a repository-settings/platform concern rather than a custom token-minting workflow;
 - multiple GitHub Copilot Gatekeeper review rounds have been exercised and concrete findings have been addressed with targeted regression coverage;
-- Phase 1 issue #2 is completed; remaining live release-readiness work is tracked in issue #4.
+- GitHub issue #7 now owns durable product roadmap capture so substantive approved ideas are not left only in chat;
+- issues #8-#18 capture the approved thin-client, startup, harness, Kiro, routing, agent-catalog, release, tooling, APM/Kiro, Perplexity, and Antigravity workstreams;
+- ADR 0008 locks the no-standalone-app/thin VS Code + optional `cc` client and lazy startup model;
+- ADR 0009 locks the surface-aware harness model, provider-native capability preservation, Kiro ACP-first preference, provider specializations, and deterministic-tool separation;
+- the large legacy agent/skill corpus migration is a parallel tracked workstream under issue #13 with a 100% source-lineage requirement.
 
 The authoritative current status is `docs/STATUS.md`.
 
 ## Immediate work order
 
-Do not create more architecture scaffolding before proving the existing implementation.
+Do not spend release-validation effort proving integration paths that ADR 0009 intentionally changes.
 
-1. Start from current `main` and review `docs/STATUS.md` plus open issues before creating a branch.
-2. Follow `docs/WORKSTATION-VALIDATION.md` on the actual VS Code execution workstation.
-3. Validate official subscription authentication and read/modify smoke boundaries for Codex, Claude Code, and Kiro.
-4. Keep Antigravity unattended execution blocked until its permission/sandbox decision is superseded with evidence.
-5. Validate context preparation locally with lossless mode first (`cc compress <file> --root <repo>`); use aggressive mode only on content where comment removal is explicitly acceptable. Do not use it on credentials/state or outside the workspace root.
-6. Validate only the MCP/reference profiles required by the repository. Keep the context-optimizer MCP adapter experimental until the official-SDK/current-protocol gate is completed.
-7. Execute the first real R1 Code Conductor dogfood task using an isolated modifying worker plus independent validation/review.
-8. Raise the same workflow to R2 with a different-provider challenger and GitHub Gatekeeper participation.
-9. Capture structured evidence, fix defects found, and validate the VS Code cockpit against the run.
-10. Prepare the v0.1 release candidate only when the release definition in `docs/IMPLEMENTATION-PLAN.md` is satisfied.
+1. Start from current `main`, review `docs/STATUS.md`, issue #7, and the active issues before creating a branch.
+2. Complete the v0.1 architecture delta represented by #10, #11, and #12: surface-aware capability schema, Kiro ACP-first integration spike/policy boundary, and provider specialization/routing tests.
+3. Update the workstation validation path so native VS Code extensions and provider-native capabilities are checked alongside CLI/ACP execution surfaces.
+4. Keep Kiro unattended execution fail-closed until the installed Kiro version, ACP behavior, subscription-policy boundary, and read/modify authority are validated.
+5. Keep Antigravity unattended execution blocked until ADR 0004 is superseded with current evidence; continue treating it as the Google/GCP specialist lane.
+6. After the revised harness/routing implementation is green, follow issue #4 and `docs/WORKSTATION-VALIDATION.md` on the actual VS Code execution workstation.
+7. Validate official subscription authentication and the required read/modify boundaries for Codex, Claude Code, and Kiro using their approved surfaces.
+8. Validate only the MCP/reference and deterministic-tool profiles required by the repository; keep the context-optimizer MCP adapter experimental until the official-SDK/current-protocol gate is completed.
+9. Execute the first real R1 Code Conductor dogfood task in an isolated modifying worktree, then raise it to R2 with a different-provider challenger and GitHub Gatekeeper participation.
+10. Capture structured evidence, fix defects found, validate the VS Code cockpit/startup behavior against the run, and prepare a v0.1 release candidate only when the release definition is satisfied.
+
+In parallel, issue #13 may inventory and migrate the legacy agent/skill corpus into modular APM packages. Do not make completion of the full corpus migration a hidden blocker for v0.1 unless a specific required persona/skill is needed for the release scenario.
 
 ## Locked operating model
 
-- VS Code is the primary cockpit.
+- VS Code is the primary cockpit; Code Conductor v0.x does not require a standalone desktop application.
+- The thin VS Code extension and optional thin `cc` CLI/TUI use the same versioned core/runtime.
+- First run performs explicit bootstrap/discovery; warm starts use cached non-secret state and lazy provider/MCP/APM activation.
 - Code Conductor owns runtime orchestration, risk, authority, context-preparation policy, evidence, and readiness.
 - APM owns reusable agent-pack dependency/distribution/integrity concerns.
 - MCP provides tools/resources and is not the team scheduler.
+- Harness integration is surface-aware rather than reduced to a generic CLI boolean.
+- Provider-native subagents, skills, hooks, commands/plugins/Powers, permissions, sessions, and IDE capabilities are preserved where officially supported.
+- Cross-provider AI invocation is mediated by Code Conductor; provider-local subagents may operate inside an assigned task boundary.
+- Kiro is the preferred specification/design/task-planning lead and AWS specialist; `kiro-cli acp` is the preferred Kiro client/harness boundary where policy and workstation validation permit it.
+- Claude Code is preferred for large-codebase engineering/refactoring/deep codebase reasoning.
+- Codex is preferred for implementation/debugging/testing/repository execution.
+- GitHub Copilot/GitHub remains the GitHub Gatekeeper.
+- Perplexity remains the external Research Captain in human-in-the-loop subscription mode unless explicit paid official MCP/API automation is enabled.
+- Antigravity remains the Google/GCP specialist and alternate independent lane, with unattended headless use gated by safety revalidation.
+- Terraform, Ansible, PowerShell, cloud CLIs, Git, Kubernetes/Helm, linters, test runners, and similar deterministic capabilities are governed tools rather than peer AI agents.
 - Context preparation is provider-neutral, lossless by default, bounded to approved workspace inputs, and never treats heuristic token estimates as billing truth.
 - Git owns code state; GitHub owns PR, Actions, review, and merge state.
-- Official CLI/headless interfaces are preferred for machine orchestration where supported and validated.
-- Native platform surfaces remain first-class when they provide unique value, especially GitHub/Copilot PR and review capabilities.
 - Subscription-backed official clients are preferred before separately billed model APIs.
-- Provider/model/harness/role/stance/specialization/authority/risk are independent dimensions.
+- Provider/model/harness/surface/role/stance/specialization/authority/risk are independent dimensions.
 - Modifying agents use isolated branches/worktrees; a clean Git merge is not proof of correctness.
 - Implementers do not self-review, self-approve, self-merge, or bypass deterministic gates.
 - High-impact/destructive external operations retain explicit human approval.
-- Perplexity Pro is the Research Captain in human-in-the-loop subscription mode unless paid official MCP/API automation is explicitly enabled.
-- Kiro Pro is the specification/requirements lead and an eligible headless worker only after the installed client passes the required validation.
 
 ## Repository development checks
 
@@ -80,7 +95,7 @@ npm run cc:validate
 apm audit --ci --policy ./apm-policy.yml --no-fail-fast
 ```
 
-For live clients, use the smoke-test sequence in `docs/WORKSTATION-VALIDATION.md`; never infer trust merely because a CLI binary is installed.
+For live clients, use the smoke-test sequence in `docs/WORKSTATION-VALIDATION.md`; never infer trust merely because a CLI binary or extension is installed.
 
 ## Branch and file hygiene
 
@@ -93,4 +108,4 @@ For live clients, use the smoke-test sequence in `docs/WORKSTATION-VALIDATION.md
 
 ## Completion rule
 
-Continue until the current task's acceptance criteria and required gates are satisfied. Preserve decisions, code, evidence, and documentation in GitHub as you go so future sessions do not depend on chat history.
+Continue until the current task's acceptance criteria and required gates are satisfied. Preserve decisions, code, evidence, roadmap items, and documentation in GitHub as you go so future sessions do not depend on chat history.
