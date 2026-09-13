@@ -73,7 +73,7 @@ function preferredSurface(capability: HarnessDefinition): string {
 }
 function requiresWorkstationClient(capability: HarnessDefinition): boolean {
   const surface = capability.surfaces?.[preferredSurface(capability)];
-  return Boolean(surface?.machine_execution && surface.requires_local_client);
+  return Boolean(surface?.requires_local_client);
 }
 function billingChannelFor(capability: HarnessDefinition): BillingChannel {
   const surfaceName = preferredSurface(capability);
