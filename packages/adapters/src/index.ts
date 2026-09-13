@@ -184,9 +184,13 @@ export class KiroAcpAdapter implements HarnessAdapter {
 
           let timer: NodeJS.Timeout | undefined;
           const timeout = new Promise<never>((_, reject) => {
-            timer = setTimeout(() => {
+            timer = setTimeout(async () => {
               timedOut = true;
-              if (sessionId) void ctx.notify(acp.methods.agent.session.cancel, { sessionId });
+              try {
+                if (sessionId) await ctx.notify(acp.methods.agent.session.cancel, { sessionId });
+              } catch {
+                // Teardown below remains authoritative even if cancellation cannot be delivered.
+              }
               reject(new Error(`Kiro ACP prompt timed out after ${request.timeoutMs}ms.`));
             }, request.timeoutMs);
           });
