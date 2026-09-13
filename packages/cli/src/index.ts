@@ -104,14 +104,27 @@ async function run(args: string[]): Promise<number> {
 
 async function harnessSmoke(args: string[]): Promise<number> {
   const harness = args[0]; const mode = (getOption(args, '--mode') ?? 'read') as HarnessTrustMode;
-  if (!harness || !['read', 'modify'].includes(mode)) { console.error('Usage: cc harness-smoke <codex|claude|kiro> --mode <read|modify>'); return 2; }
+  if (!harness || !['read', 'modify'].includes(mode)) { console.error('Usage: cc harness-smoke <codex|claude|kiro> --mode <read|modify> [--ack-kiro-policy]'); return 2; }
   if (harness === 'antigravity') { console.error('BLOCKED: Antigravity unattended smoke is disabled pending current permission/sandbox revalidation.'); return 1; }
   const adapter = createBuiltinAdapters().get(harness);
   if (!adapter?.available()) { console.error(`ERROR: harness ${harness} is not available.`); return 1; }
-  if (adapter.executionSurface === 'acp' && harness === 'kiro') {
-    console.error('BLOCKED: Kiro now requires the ACP-specific smoke path tracked in issue #11. Generic `kiro-cli chat --no-interactive` smoke cannot authorize the ACP surface.');
-    return 1;
+
+  const workstation = new WorkstationStore();
+  if (harness === 'kiro') {
+    if (adapter.executionSurface !== 'acp') {
+      console.error(`BLOCKED: Kiro smoke requires the approved ACP surface; adapter exposed ${adapter.executionSurface}.`);
+      return 1;
+    }
+    if (!args.includes('--ack-kiro-policy')) {
+      console.error('BLOCKED: Kiro ACP smoke may consume Kiro subscription credits. Read the current Kiro subscription/automation policy and rerun with --ack-kiro-policy only if this ACP-compatible development workflow is permitted for your account/use case.');
+      return 1;
+    }
+    if (mode === 'modify' && !workstation.isTrusted('kiro', 'read', 'acp')) {
+      console.error('BLOCKED: Run and pass the Kiro ACP read smoke before attempting modify smoke.');
+      return 1;
+    }
   }
+
   const root = mkdtempSync(join(tmpdir(), 'cc-smoke-')); const workspace = join(root, 'workspace');
   try {
     spawnSync('git', ['init', workspace], { stdio: 'ignore' });
@@ -123,9 +136,10 @@ async function harnessSmoke(args: string[]): Promise<number> {
     const outcome = await adapter.execute({ task, assignment, cwd: workspace, timeoutMs: 180000, prompt: `${task.objective}\nFinal line: CC_RESULT_JSON:{"status":"completed","changes":[],"tests":[],"evidence":[],"findings":[],"risks":[],"blockers":[],"recommendation":"ready"}` });
     const parsed = parseAgentResult(assignment, outcome); const changed = spawnSync('git', ['-C', workspace, 'status', '--porcelain=v1'], { encoding: 'utf8' }).stdout.trim().split(/\r?\n/).filter(Boolean);
     const writeOk = mode === 'modify' ? (() => { try { return readFileSync(join(workspace, 'OUTPUT.txt'), 'utf8') === 'WRITE_OK\n'; } catch { return false; } })() : changed.length === 0;
-    const ok = outcome.exitCode === 0 && parsed.status === 'completed' && writeOk;
-    if (!ok) { console.error(`SMOKE FAIL ${harness} ${adapter.executionSurface} ${mode}: exit=${String(outcome.exitCode)} changed=${changed.join(',') || 'none'}`); return 1; }
-    new WorkstationStore().record(harness, mode, adapter.version(), `Temporary ${mode} smoke passed on ${adapter.executionSurface} without storing credentials.`, adapter.executionSurface);
+    const processOk = adapter.executionSurface === 'acp' ? !outcome.timedOut : outcome.exitCode === 0;
+    const ok = processOk && parsed.status === 'completed' && writeOk;
+    if (!ok) { console.error(`SMOKE FAIL ${harness} ${adapter.executionSurface} ${mode}: exit=${String(outcome.exitCode)} signal=${String(outcome.signal)} timeout=${outcome.timedOut} changed=${changed.join(',') || 'none'}`); return 1; }
+    workstation.record(harness, mode, adapter.version(), `Temporary ${mode} smoke passed on ${adapter.executionSurface} without storing credentials.`, adapter.executionSurface);
     console.log(`SMOKE PASS ${harness} ${adapter.executionSurface} ${mode}`); return 0;
   } finally { rmSync(root, { recursive: true, force: true }); }
 }
@@ -149,7 +163,7 @@ function compressFile(args: string[]): number {
     return 1;
   }
 }
-function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nplan/run accept optional --specializations <comma,separated,hints>; otherwise routing uses the small inspectable objective-signal map in config/capabilities.yaml.\n\nrun defaults to dry-run; pass --execute only after surface-specific harness smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.\n\ncompress <file> defaults to lossless preparation scoped to --root <dir> (default: current directory). Use --aggressive only when comment/whitespace removal is explicitly acceptable.'); }
+function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nplan/run accept optional --specializations <comma,separated,hints>; otherwise routing uses the small inspectable objective-signal map in config/capabilities.yaml.\n\nrun defaults to dry-run; pass --execute only after surface-specific harness smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.\n\nKiro ACP smoke requires --ack-kiro-policy after reading the current Kiro subscription/automation policy; run read smoke before modify smoke.\n\ncompress <file> defaults to lossless preparation scoped to --root <dir> (default: current directory). Use --aggressive only when comment/whitespace removal is explicitly acceptable.'); }
 
 const [command = 'help', ...args] = process.argv.slice(2); let exitCode = 0;
 switch (command) {
