@@ -11,7 +11,9 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "npm run build:ts && npm run build:vscode",
+    "build:ts": "tsc -b",
+    "build:vscode": "esbuild apps/vscode/src/extension.ts --bundle --platform=node --format=esm --target=node22 --external:vscode --sourcemap --outfile=apps/vscode/dist/extension.js && esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --target=node22 --sourcemap --outfile=apps/vscode/dist/cc.js && node scripts/verify-vscode-bundle.mjs",
     "clean": "tsc -b --clean",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "esbuild": "0.28.2",
     "typescript": "^5.9.0",
     "vitest": "^5.0.0"
   }

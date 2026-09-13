@@ -4,11 +4,17 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
+import { startupSnapshot, type StartupMode } from './startup.js';
 
 type ItemSpec = { label: string; description?: string; tooltip?: string; icon?: string; command?: vscode.Command };
 type CapabilitySurface = { kind?: string; identifiers?: string[]; commands?: string[]; command?: string; interactive?: boolean; machine_execution?: boolean; requires_local_client?: boolean; enabled_by_default?: boolean };
 type HarnessCapability = { provider?: string; command_candidates?: string[]; primary_specializations?: string[]; preferred_execution_surface?: string; native_capabilities?: string[]; surfaces?: Record<string, CapabilitySurface> };
 type CapabilityDocument = { defaults?: { billing_policy?: string; allow_separately_billed_api?: boolean }; harnesses?: Record<string, HarnessCapability> };
+type LocalDiscovery = { capturedAt: string; commands: Record<string, boolean>; extensions: Record<string, boolean> };
+
+const STARTUP_FINGERPRINT_KEY = 'codeConductor.startupFingerprint';
+const STARTUP_MODE_KEY = 'codeConductor.startupMode';
+const STARTUP_DISCOVERY_KEY = 'codeConductor.startupDiscovery';
 
 class ConductorItem extends vscode.TreeItem {
   constructor(spec: ItemSpec) {
@@ -136,30 +142,91 @@ function usageItems(root?: string): ItemSpec[] {
   ];
 }
 
-function runCli(root: string, args: string[], title: string): void {
-  const terminal = vscode.window.createTerminal({ name: title, cwd: root });
-  const cli = join(root, 'packages', 'cli', 'dist', 'index.js');
-  const quoted = (value: string) => JSON.stringify(value);
-  terminal.show();
-  if (!existsSync(cli)) terminal.sendText('npm run build');
-  terminal.sendText(`node ${quoted(cli)} ${args.map(quoted).join(' ')}`);
+function discoverLocalSurfaces(): LocalDiscovery {
+  const commands = ['git', 'gh', 'apm', 'claude', 'codex', 'kiro-cli', 'agy', 'terraform', 'ansible', 'pwsh', 'az', 'aws', 'gcloud', 'kubectl', 'helm'];
+  const extensionIds = ['anthropic.claude-code', 'openai.chatgpt', 'github.copilot', 'github.copilot-chat', 'github.vscode-pull-request-github'];
+  return {
+    capturedAt: new Date().toISOString(),
+    commands: Object.fromEntries(commands.map((command) => [command, commandExists(command)])),
+    extensions: Object.fromEntries(extensionIds.map((id) => [id, Boolean(vscode.extensions.getExtension(id))])),
+  };
 }
 
-export function activate(context: vscode.ExtensionContext): void {
+function startupTooltip(mode: StartupMode, discovery?: LocalDiscovery): string {
+  const label = mode === 'first_run' ? 'First-run local discovery completed.' : mode === 'config_changed' ? 'Configuration changed; local discovery refreshed.' : 'Warm start restored from cached local state.';
+  if (!discovery) return `${label}\nNo AI provider, ACP session, MCP server, or APM materialization was started.`;
+  const available = Object.entries(discovery.commands).filter(([, value]) => value).map(([key]) => key);
+  return `${label}\nDetected local commands: ${available.join(', ') || 'none'}\nNo AI provider, ACP session, MCP server, or APM materialization was started.`;
+}
+
+function runCli(context: vscode.ExtensionContext, root: string, args: string[], title: string): void {
+  const runtime = join(context.extensionPath, 'dist', 'cc.js');
+  if (!existsSync(runtime)) {
+    void vscode.window.showErrorMessage('Code Conductor runtime bundle is missing. Reinstall/rebuild the Code Conductor extension; customer repositories should never build the runtime themselves.');
+    return;
+  }
+  const terminal = vscode.window.createTerminal({ name: title, cwd: root });
+  const quoted = (value: string) => JSON.stringify(value);
+  terminal.show();
+  terminal.sendText(`node ${quoted(runtime)} ${args.map(quoted).join(' ')}`);
+}
+
+async function initializeStartup(context: vscode.ExtensionContext): Promise<vscode.StatusBarItem> {
+  const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 25);
+  status.command = 'codeConductor.doctor';
+  const root = workspaceRoot();
+  if (!root) {
+    status.text = '$(radio-tower) Conductor: No Workspace';
+    status.tooltip = 'Open a repository workspace to initialize Code Conductor.';
+    status.show();
+    return status;
+  }
+
+  const previous = context.workspaceState.get<string>(STARTUP_FINGERPRINT_KEY);
+  const snapshot = startupSnapshot(root, previous);
+  let discovery = context.workspaceState.get<LocalDiscovery>(STARTUP_DISCOVERY_KEY);
+
+  if (snapshot.mode !== 'warm' || !discovery) {
+    discovery = discoverLocalSurfaces();
+    await context.workspaceState.update(STARTUP_DISCOVERY_KEY, discovery);
+  }
+  await context.workspaceState.update(STARTUP_FINGERPRINT_KEY, snapshot.fingerprint);
+  await context.workspaceState.update(STARTUP_MODE_KEY, snapshot.mode);
+  await vscode.commands.executeCommand('setContext', 'codeConductor.startupMode', snapshot.mode);
+
+  const missingRequired = ['git', 'gh', 'apm'].filter((command) => !discovery?.commands[command]);
+  status.text = missingRequired.length ? '$(warning) Conductor: Setup' : '$(check) Conductor Ready';
+  status.tooltip = `${startupTooltip(snapshot.mode, discovery)}${missingRequired.length ? `\nMissing baseline commands: ${missingRequired.join(', ')}. Click to run Doctor.` : '\nClick to run Doctor for deeper auth/trust validation.'}`;
+  status.show();
+  return status;
+}
+
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const root = () => workspaceRoot();
+  const startupStatus = await initializeStartup(context);
+  context.subscriptions.push(startupStatus);
+
   const providers = [
     new ConductorProvider(() => teamItems(root())), new ConductorProvider(runItems), new ConductorProvider(() => gateItems(root())),
     new ConductorProvider(() => connectionItems(root())), new ConductorProvider(() => packItems(root())), new ConductorProvider(() => usageItems(root())),
   ];
   const ids = ['codeConductor.team', 'codeConductor.runs', 'codeConductor.gates', 'codeConductor.connections', 'codeConductor.packs', 'codeConductor.usage'];
   ids.forEach((id, index) => context.subscriptions.push(vscode.window.registerTreeDataProvider(id, providers[index]!)));
-  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.refresh', () => providers.forEach((provider) => provider.refresh())));
-  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.doctor', () => { const r = root(); if (r) runCli(r, ['doctor', '.'], 'Code Conductor Doctor'); }));
-  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.validate', () => { const r = root(); if (r) runCli(r, ['validate', '.'], 'Code Conductor Validate'); }));
+  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.refresh', async () => {
+    const r = root();
+    if (r) {
+      const discovery = discoverLocalSurfaces();
+      await context.workspaceState.update(STARTUP_DISCOVERY_KEY, discovery);
+      await context.workspaceState.update(STARTUP_FINGERPRINT_KEY, startupSnapshot(r).fingerprint);
+    }
+    providers.forEach((provider) => provider.refresh());
+  }));
+  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.doctor', () => { const r = root(); if (r) runCli(context, r, ['doctor', '.'], 'Code Conductor Doctor'); }));
+  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.validate', () => { const r = root(); if (r) runCli(context, r, ['validate', '.'], 'Code Conductor Validate'); }));
   context.subscriptions.push(vscode.commands.registerCommand('codeConductor.plan', async () => {
     const r = root(); if (!r) return; const objective = await vscode.window.showInputBox({ prompt: 'Task objective', ignoreFocusOut: true }); if (!objective) return;
     const risk = await vscode.window.showQuickPick(['R0', 'R1', 'R2', 'R3', 'R4'], { placeHolder: 'Risk class' }); if (!risk) return;
-    runCli(r, ['plan', '--repo', '.', '--risk', risk, '--objective', objective], 'Code Conductor Plan');
+    runCli(context, r, ['plan', '--repo', '.', '--risk', risk, '--objective', objective], 'Code Conductor Plan');
   }));
   context.subscriptions.push(vscode.commands.registerCommand('codeConductor.openDecisions', async () => {
     const r = root(); if (!r) return; const uri = vscode.Uri.file(join(r, 'docs', 'DECISIONS.md')); if (existsSync(uri.fsPath)) await vscode.window.showTextDocument(uri);

@@ -7,11 +7,11 @@
   "type": "module",
   "engines": { "vscode": "^1.105.0" },
   "categories": ["Other"],
-  "activationEvents": ["onView:codeConductor.team", "onCommand:codeConductor.doctor"],
+  "activationEvents": ["onStartupFinished", "onView:codeConductor.team", "onCommand:codeConductor.doctor"],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
-      { "command": "codeConductor.refresh", "title": "Code Conductor: Refresh" },
+      { "command": "codeConductor.refresh", "title": "Code Conductor: Refresh Local Discovery" },
       { "command": "codeConductor.doctor", "title": "Code Conductor: Doctor" },
       { "command": "codeConductor.validate", "title": "Code Conductor: Validate Repository" },
       { "command": "codeConductor.plan", "title": "Code Conductor: Plan Task" },
