@@ -12,9 +12,14 @@ export interface HarnessValidationRecord {
 }
 
 export interface WorkstationState {
-  version: 1;
+  version: 2;
   harnesses: Record<string, HarnessValidationRecord>;
 }
+
+type LegacyWorkstationState = {
+  version: 1;
+  harnesses?: Record<string, HarnessValidationRecord>;
+};
 
 export function workstationStatePath(env: NodeJS.ProcessEnv = process.env): string {
   return env.CODE_CONDUCTOR_WORKSTATION_STATE || join(env.CODE_CONDUCTOR_HOME || join(homedir(), '.code-conductor'), 'workstation.json');
@@ -25,15 +30,28 @@ function ensurePrivateDirectory(path: string): void {
   chmodSync(path, 0o700);
 }
 
+function trustKey(harness: string, surface: string): string {
+  return `${harness}@${surface}`;
+}
+
 export class WorkstationStore {
   constructor(public readonly path = workstationStatePath()) {}
 
   load(): WorkstationState {
     try {
-      const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as WorkstationState;
-      return parsed.version === 1 && parsed.harnesses ? parsed : { version: 1, harnesses: {} };
+      const parsed = JSON.parse(readFileSync(this.path, 'utf8')) as WorkstationState | LegacyWorkstationState;
+      if (parsed.version === 2 && parsed.harnesses) return parsed;
+      if (parsed.version === 1 && parsed.harnesses) {
+        // v1 trust was recorded only for the original generic CLI adapters. Do
+        // not allow it to authorize a new ACP/native surface accidentally.
+        return {
+          version: 2,
+          harnesses: Object.fromEntries(Object.entries(parsed.harnesses).map(([harness, record]) => [trustKey(harness, 'cli'), record])),
+        };
+      }
+      return { version: 2, harnesses: {} };
     } catch {
-      return { version: 1, harnesses: {} };
+      return { version: 2, harnesses: {} };
     }
   }
 
@@ -46,14 +64,15 @@ export class WorkstationStore {
     chmodSync(this.path, 0o600);
   }
 
-  isTrusted(harness: string, mode: HarnessTrustMode): boolean {
-    const record = this.load().harnesses[harness];
+  isTrusted(harness: string, mode: HarnessTrustMode, surface = 'cli'): boolean {
+    const record = this.load().harnesses[trustKey(harness, surface)];
     return mode === 'read' ? Boolean(record?.readValidatedAt || record?.modifyValidatedAt) : Boolean(record?.modifyValidatedAt);
   }
 
-  record(harness: string, mode: HarnessTrustMode, clientVersion?: string, note?: string): void {
+  record(harness: string, mode: HarnessTrustMode, clientVersion?: string, note?: string, surface = 'cli'): void {
     const state = this.load();
-    const existing = state.harnesses[harness] ?? {};
+    const key = trustKey(harness, surface);
+    const existing = state.harnesses[key] ?? {};
     const now = new Date().toISOString();
     if (mode === 'read') existing.readValidatedAt = now;
     else {
@@ -62,7 +81,7 @@ export class WorkstationStore {
     }
     if (clientVersion) existing.clientVersion = clientVersion;
     if (note) existing.notes = [...(existing.notes ?? []), note].slice(-10);
-    state.harnesses[harness] = existing;
+    state.harnesses[key] = existing;
     this.save(state);
   }
 }
