@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09-12
 - **Related issues:** #10, #11, #12, #15, #17, #18
-- **Supersedes/clarifies:** D-011 machine-facing adapter preference; D-015 Kiro integration details
+- **Clarifies/extends:** D-011 machine-facing adapter preference; D-015 Kiro integration details
 
 ## Context
 
