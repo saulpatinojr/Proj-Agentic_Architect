@@ -8,7 +8,7 @@ function fallbackResult(assignment: AgentAssignment, outcome: HarnessExecutionOu
   const evidence: Evidence = {
     id: `E-${randomUUID()}`,
     kind: 'agent_output',
-    source: `${assignment.harness}:${assignment.agentId}`,
+    source: `${assignment.harness}:${assignment.surface ?? outcome.surface}:${assignment.agentId}`,
     summary: [outcome.stdout.trim(), outcome.stderr.trim()].filter(Boolean).join('\n').slice(0, 12000) || 'Agent returned no structured result.',
   };
   return {
@@ -19,6 +19,7 @@ function fallbackResult(assignment: AgentAssignment, outcome: HarnessExecutionOu
     stance: assignment.stance,
     provider: assignment.provider,
     harness: assignment.harness,
+    ...(assignment.surface ? { surface: assignment.surface } : {}),
     billingChannel: assignment.billingChannel,
     status: 'failed',
     changes: [],
@@ -45,6 +46,7 @@ export function parseAgentResult(assignment: AgentAssignment, outcome: HarnessEx
         stance: assignment.stance,
         provider: assignment.provider,
         harness: assignment.harness,
+        ...(assignment.surface ? { surface: assignment.surface } : {}),
         billingChannel: assignment.billingChannel,
         status: candidate.status ?? (outcome.exitCode === 0 ? 'completed' : 'failed'),
         changes: candidate.changes ?? [],
@@ -80,6 +82,7 @@ export function externalAwaitingResult(assignment: AgentAssignment, reason: stri
     stance: assignment.stance,
     provider: assignment.provider,
     harness: assignment.harness,
+    ...(assignment.surface ? { surface: assignment.surface } : {}),
     billingChannel: assignment.billingChannel,
     status: 'awaiting_external',
     changes: [],

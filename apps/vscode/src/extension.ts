@@ -2,10 +2,13 @@ import * as vscode from 'vscode';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 
 type ItemSpec = { label: string; description?: string; tooltip?: string; icon?: string; command?: vscode.Command };
+type CapabilitySurface = { kind?: string; identifiers?: string[]; commands?: string[]; command?: string; interactive?: boolean; machine_execution?: boolean; requires_local_client?: boolean; enabled_by_default?: boolean };
+type HarnessCapability = { provider?: string; command_candidates?: string[]; primary_specializations?: string[]; preferred_execution_surface?: string; native_capabilities?: string[]; surfaces?: Record<string, CapabilitySurface> };
+type CapabilityDocument = { defaults?: { billing_policy?: string; allow_separately_billed_api?: boolean }; harnesses?: Record<string, HarnessCapability> };
 
 class ConductorItem extends vscode.TreeItem {
   constructor(spec: ItemSpec) {
@@ -29,11 +32,38 @@ class ConductorProvider implements vscode.TreeDataProvider<ConductorItem> {
 function workspaceRoot(): string | undefined { return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; }
 function loadYaml<T>(root: string, path: string): T | undefined { try { return parse(readFileSync(join(root, path), 'utf8')) as T; } catch { return undefined; } }
 function commandExists(command: string): boolean { const probe = process.platform === 'win32' ? 'where' : 'which'; return spawnSync(probe, [command], { stdio: 'ignore' }).status === 0; }
+function harnessLabel(id: string): string {
+  const labels: Record<string, string> = {
+    'copilot-github': 'GitHub Copilot / GitHub',
+    claude: 'Claude Code',
+    codex: 'OpenAI Codex',
+    kiro: 'Kiro',
+    antigravity: 'Google Antigravity',
+    perplexity: 'Perplexity',
+    'internal-validator': 'Code Conductor Validator',
+  };
+  return labels[id] ?? id;
+}
+function surfaceCommands(harness: HarnessCapability, surface?: CapabilitySurface): string[] {
+  if (surface?.command) return [surface.command];
+  if (surface?.commands?.length) return surface.commands;
+  return harness.command_candidates ?? [];
+}
 
 function teamItems(root?: string): ItemSpec[] {
   if (!root) return [{ label: 'Open a repository workspace', icon: 'info' }];
-  const doc = loadYaml<{ roles?: Record<string, { stance?: string; preferred_harnesses?: string[] }> }>(root, 'config/roles.yaml');
-  return Object.entries(doc?.roles ?? {}).map(([role, spec]) => ({ label: role, description: [spec.stance, spec.preferred_harnesses?.join('/')].filter(Boolean).join(' · '), icon: role === 'builder' ? 'tools' : role.includes('review') || role.includes('challenger') ? 'search' : 'account' }));
+  const roles = loadYaml<{ roles?: Record<string, { stance?: string; preferred_harnesses?: string[] }> }>(root, 'config/roles.yaml');
+  const capabilities = loadYaml<CapabilityDocument>(root, 'config/capabilities.yaml');
+  return Object.entries(roles?.roles ?? {}).map(([role, spec]) => {
+    const harnesses = spec.preferred_harnesses ?? [];
+    const specializations = [...new Set(harnesses.flatMap((harness) => capabilities?.harnesses?.[harness]?.primary_specializations ?? []))];
+    return {
+      label: role,
+      description: [spec.stance, harnesses.map(harnessLabel).join('/'), specializations.length ? specializations.join(',') : undefined].filter(Boolean).join(' · '),
+      tooltip: specializations.length ? `Primary routing specializations: ${specializations.join(', ')}` : undefined,
+      icon: role === 'builder' ? 'tools' : role.includes('review') || role.includes('challenger') ? 'search' : 'account',
+    };
+  });
 }
 
 function runItems(): ItemSpec[] {
@@ -48,9 +78,31 @@ function gateItems(root?: string): ItemSpec[] {
   return Object.entries(doc?.profiles ?? {}).flatMap(([profile, spec]) => (spec.gates ?? []).map((gate) => ({ label: gate.id, description: `${profile}${gate.blocking === false ? ' · advisory' : ' · blocking'}`, icon: gate.blocking === false ? 'info' : 'shield' })));
 }
 
-function connectionItems(): ItemSpec[] {
-  const clients: Array<[string, string, string]> = [['GitHub', 'gh', 'github'], ['APM', 'apm', 'package'], ['Claude', 'claude', 'hubot'], ['Codex', 'codex', 'terminal'], ['Kiro', 'kiro-cli', 'checklist'], ['Antigravity', 'agy', 'globe']];
-  return clients.map(([label, command, icon]) => ({ label, description: commandExists(command) ? `available · ${command}` : `not found · ${command}`, icon: commandExists(command) ? icon : 'warning' }));
+function connectionItems(root?: string): ItemSpec[] {
+  if (!root) return [{ label: 'Open a repository workspace', icon: 'info' }];
+  const capabilities = loadYaml<CapabilityDocument>(root, 'config/capabilities.yaml');
+  const items: ItemSpec[] = [];
+  for (const [id, harness] of Object.entries(capabilities?.harnesses ?? {})) {
+    if (id === 'internal-validator') continue;
+    const preferredName = harness.preferred_execution_surface ?? 'unknown';
+    const preferred = harness.surfaces?.[preferredName];
+    const commands = surfaceCommands(harness, preferred);
+    const localClientAvailable = commands.length === 0 || commands.some(commandExists);
+    const extensionIds = Object.values(harness.surfaces ?? {}).flatMap((surface) => surface.identifiers ?? []);
+    const extensionAvailable = extensionIds.some((extensionId) => Boolean(vscode.extensions.getExtension(extensionId)));
+    const requiresLocal = Boolean(preferred?.requires_local_client);
+    const preferredAvailable = requiresLocal ? localClientAvailable : preferred?.kind === 'vscode_extension' ? extensionAvailable : true;
+    const allSurfaces = Object.entries(harness.surfaces ?? {}).map(([name, surface]) => `${name}:${surface.kind ?? 'unknown'}${surface.machine_execution ? ':machine' : ':human'}`).join(', ');
+    items.push({
+      label: harnessLabel(id),
+      description: `${preferredAvailable ? 'available' : 'not found'} · preferred ${preferredName}${commands.length ? ` · ${commands.join('|')}` : ''}`,
+      tooltip: `Provider: ${harness.provider ?? 'unknown'}\nSurfaces: ${allSurfaces || 'none'}\nNative capabilities: ${(harness.native_capabilities ?? []).join(', ') || 'none declared'}${extensionIds.length ? `\nVS Code extensions: ${extensionIds.join(', ')}${extensionAvailable ? ' (detected)' : ''}` : ''}`,
+      icon: preferredAvailable ? (id === 'kiro' ? 'checklist' : id === 'antigravity' ? 'globe' : id === 'copilot-github' ? 'github' : 'hubot') : 'warning',
+    });
+  }
+  const apmAvailable = commandExists('apm');
+  items.push({ label: 'Microsoft APM', description: `${apmAvailable ? 'available' : 'not found'} · apm`, icon: apmAvailable ? 'package' : 'warning' });
+  return items;
 }
 
 function packItems(root?: string): ItemSpec[] {
@@ -66,7 +118,7 @@ function packItems(root?: string): ItemSpec[] {
 }
 
 function usageItems(root?: string): ItemSpec[] {
-  const capabilities = root ? loadYaml<{ defaults?: { billing_policy?: string; allow_separately_billed_api?: boolean } }>(root, 'config/capabilities.yaml') : undefined;
+  const capabilities = root ? loadYaml<CapabilityDocument>(root, 'config/capabilities.yaml') : undefined;
   const statsPath = join(process.env.CODE_CONDUCTOR_HOME || join(homedir(), '.code-conductor'), 'context-optimization-stats.json');
   let savedTokens = 0;
   if (existsSync(statsPath)) {
@@ -97,7 +149,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const root = () => workspaceRoot();
   const providers = [
     new ConductorProvider(() => teamItems(root())), new ConductorProvider(runItems), new ConductorProvider(() => gateItems(root())),
-    new ConductorProvider(connectionItems), new ConductorProvider(() => packItems(root())), new ConductorProvider(() => usageItems(root())),
+    new ConductorProvider(() => connectionItems(root())), new ConductorProvider(() => packItems(root())), new ConductorProvider(() => usageItems(root())),
   ];
   const ids = ['codeConductor.team', 'codeConductor.runs', 'codeConductor.gates', 'codeConductor.connections', 'codeConductor.packs', 'codeConductor.usage'];
   ids.forEach((id, index) => context.subscriptions.push(vscode.window.registerTreeDataProvider(id, providers[index]!)));

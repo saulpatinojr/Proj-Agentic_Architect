@@ -39,10 +39,24 @@ type RiskConfig = {
     unattended_execution?: boolean;
   }>;
 };
+type CapabilitySurface = {
+  kind?: string;
+  machine_execution?: boolean;
+  separately_billed_api?: boolean;
+  enabled_by_default?: boolean;
+};
+type CapabilityHarness = {
+  provider?: string;
+  preferred_execution_surface?: string;
+  surfaces?: Record<string, CapabilitySurface>;
+  native_capabilities?: string[];
+  primary_specializations?: string[];
+};
 type CapabilityConfig = {
   version: number;
   defaults?: { billing_policy?: string; allow_separately_billed_api?: boolean; require_official_client_or_api?: boolean };
-  harnesses?: Record<string, unknown>;
+  routing?: { objective_signals?: Record<string, string[]> };
+  harnesses?: Record<string, CapabilityHarness>;
 };
 type ReferenceConfig = {
   version: number;
@@ -115,6 +129,51 @@ export function validatePolicyObjects(roles: RolesConfig, risks: RiskConfig): Va
   return issues;
 }
 
+function validateCapabilities(capabilities: CapabilityConfig): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  if (capabilities.version !== 2) {
+    issues.push({ level: 'error', code: 'capabilities.version', path: 'config/capabilities.yaml', message: 'Surface-aware capability configuration must use version 2.' });
+  }
+  if (capabilities.defaults?.billing_policy !== 'subscription_first') {
+    issues.push({ level: 'error', code: 'billing.subscription_first', path: 'config/capabilities.yaml', message: 'Default billing policy must be subscription_first.' });
+  }
+  if (capabilities.defaults?.allow_separately_billed_api !== false) {
+    issues.push({ level: 'error', code: 'billing.api_default', path: 'config/capabilities.yaml', message: 'Separately billed API execution must be disabled by default.' });
+  }
+
+  for (const [id, harness] of Object.entries(capabilities.harnesses ?? {})) {
+    const path = `config/capabilities.yaml#harnesses.${id}`;
+    if (!harness.provider) issues.push({ level: 'error', code: 'capabilities.provider', path, message: `Harness ${id} must declare a provider.` });
+    if (!harness.preferred_execution_surface) {
+      issues.push({ level: 'error', code: 'capabilities.preferred_surface', path, message: `Harness ${id} must declare preferred_execution_surface.` });
+    } else if (!harness.surfaces?.[harness.preferred_execution_surface]) {
+      issues.push({ level: 'error', code: 'capabilities.unknown_preferred_surface', path, message: `Harness ${id} preferred surface ${harness.preferred_execution_surface} is not declared.` });
+    }
+    if (!harness.surfaces || Object.keys(harness.surfaces).length === 0) {
+      issues.push({ level: 'error', code: 'capabilities.surfaces_required', path, message: `Harness ${id} must declare at least one surface.` });
+    }
+    if (!Array.isArray(harness.native_capabilities)) {
+      issues.push({ level: 'error', code: 'capabilities.native_capabilities', path, message: `Harness ${id} must declare native_capabilities, even if empty.` });
+    }
+    for (const [surfaceName, surface] of Object.entries(harness.surfaces ?? {})) {
+      if (surface.separately_billed_api && surface.machine_execution && surface.enabled_by_default !== false) {
+        issues.push({ level: 'error', code: 'billing.api_surface_default', path: `${path}.surfaces.${surfaceName}`, message: `Separately billed machine surface ${id}.${surfaceName} must be disabled by default.` });
+      }
+    }
+  }
+
+  const kiro = capabilities.harnesses?.kiro;
+  if (kiro?.preferred_execution_surface !== 'acp' || kiro.surfaces?.acp?.kind !== 'acp' || kiro.surfaces?.acp?.machine_execution !== true) {
+    issues.push({ level: 'error', code: 'capabilities.kiro_acp', path: 'config/capabilities.yaml#harnesses.kiro', message: 'Kiro must use ACP as the preferred machine execution surface.' });
+  }
+  const perplexity = capabilities.harnesses?.perplexity;
+  if (perplexity?.surfaces?.mcp_api && (perplexity.surfaces.mcp_api.separately_billed_api !== true || perplexity.surfaces.mcp_api.enabled_by_default !== false)) {
+    issues.push({ level: 'error', code: 'capabilities.perplexity_paid_boundary', path: 'config/capabilities.yaml#harnesses.perplexity.surfaces.mcp_api', message: 'Perplexity automated MCP/API must remain explicitly separately billed and disabled by default.' });
+  }
+
+  return issues;
+}
+
 export function validateRepositoryConfig(root: string): ValidationReport {
   const issues: ValidationIssue[] = [];
 
@@ -143,14 +202,7 @@ export function validateRepositoryConfig(root: string): ValidationReport {
     }
   }
 
-  if (capabilities) {
-    if (capabilities.defaults?.billing_policy !== 'subscription_first') {
-      issues.push({ level: 'error', code: 'billing.subscription_first', path: 'config/capabilities.yaml', message: 'Default billing policy must be subscription_first.' });
-    }
-    if (capabilities.defaults?.allow_separately_billed_api !== false) {
-      issues.push({ level: 'error', code: 'billing.api_default', path: 'config/capabilities.yaml', message: 'Separately billed API execution must be disabled by default.' });
-    }
-  }
+  if (capabilities) issues.push(...validateCapabilities(capabilities));
 
   if (roles && risks) issues.push(...validatePolicyObjects(roles, risks));
 

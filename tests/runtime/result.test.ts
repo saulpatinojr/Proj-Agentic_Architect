@@ -3,18 +3,19 @@ import { parseAgentResult } from '../../packages/runtime/src/result.js';
 import type { AgentAssignment } from '../../packages/schemas/src/index.js';
 
 const assignment: AgentAssignment = {
-  id: 'A-1', taskId: 'T-1', agentId: 'builder-codex', role: 'builder', stance: 'constructive', provider: 'openai', harness: 'codex', billingChannel: 'subscription', authority: ['modify_worktree'], dependsOn: [],
+  id: 'A-1', taskId: 'T-1', agentId: 'builder-codex', role: 'builder', stance: 'constructive', provider: 'openai', harness: 'codex', surface: 'cli', billingChannel: 'subscription', authority: ['modify_worktree'], dependsOn: [],
 };
 
 function outcome(stdout: string, exitCode = 0) {
-  return { harness: 'codex', command: 'codex', args: [], exitCode, signal: null, stdout, stderr: '', startedAt: '', finishedAt: '', timedOut: false } as const;
+  return { harness: 'codex', surface: 'cli' as const, command: 'codex', args: [], exitCode, signal: null, stdout, stderr: '', startedAt: '', finishedAt: '', timedOut: false } as const;
 }
 
 describe('agent result parsing', () => {
-  it('accepts the final structured marker', () => {
+  it('accepts the final structured marker and preserves the planned execution surface', () => {
     const result = parseAgentResult(assignment, outcome('notes\nCC_RESULT_JSON:{"status":"completed","changes":["x.ts"],"tests":[],"evidence":[],"findings":[],"risks":[],"blockers":[],"recommendation":"review"}\n'));
     expect(result.status).toBe('completed');
     expect(result.changes).toEqual(['x.ts']);
+    expect(result.surface).toBe('cli');
   });
 
   it('fails closed when structured output is absent', () => {

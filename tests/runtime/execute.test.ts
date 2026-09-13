@@ -2,18 +2,23 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { HarnessAdapter, HarnessExecutionRequest, HarnessExecutionOutcome } from '../../packages/adapters/src/index.js';
+import type { HarnessAdapter, HarnessExecutionRequest, HarnessExecutionOutcome, HarnessExecutionSurface } from '../../packages/adapters/src/index.js';
 import { RunStore } from '../../packages/evidence/src/index.js';
 import { executeTask, createTask } from '../../packages/runtime/src/index.js';
 import type { WorktreeHandle, WorktreeManager } from '../../packages/git/src/index.js';
 
 class FakeAdapter implements HarnessAdapter {
-  constructor(public id: string, public provider: string, public command: string | null = `fake-${id}`) {}
+  constructor(
+    public id: string,
+    public provider: string,
+    public command: string | null = `fake-${id}`,
+    public executionSurface: HarnessExecutionSurface = 'cli',
+  ) {}
   available(): boolean { return true; }
   version(): string { return 'fake-1.0.0'; }
   async execute(request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome> {
     const payload = { status: 'completed', changes: request.assignment.role === 'builder' ? ['fake.txt'] : [], tests: [], evidence: [], findings: [], risks: [], blockers: [], recommendation: request.assignment.role === 'reviewer' ? 'ready' : 'review' };
-    return { harness: this.id, command: this.command ?? 'fake', args: [], exitCode: 0, signal: null, stdout: `CC_RESULT_JSON:${JSON.stringify(payload)}\n`, stderr: '', startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), timedOut: false };
+    return { harness: this.id, surface: this.executionSurface, command: this.command ?? 'fake', args: [], exitCode: 0, signal: null, stdout: `CC_RESULT_JSON:${JSON.stringify(payload)}\n`, stderr: '', startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), timedOut: false };
   }
 }
 
@@ -33,6 +38,7 @@ describe('run execution', () => {
         gateExecutor: () => ({ status: 0, stdout: 'ok', stderr: '' }), isHarnessTrusted: () => true,
       });
       expect(outcome.manifest.results.map((r) => r.role)).toEqual(['builder', 'reviewer', 'validator']);
+      expect(outcome.manifest.results[0]?.surface).toBe('cli');
       expect(outcome.manifest.mergeDecision?.decision).toBe('ready');
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
@@ -59,8 +65,25 @@ describe('run execution', () => {
         gateExecutor: () => ({ status: 0, stdout: 'ok', stderr: '' }),
       });
       expect(outcome.manifest.results[0]?.status).toBe('blocked');
-      expect(outcome.manifest.results[0]?.blockers[0]).toContain('has not passed Code Conductor workstation');
+      expect(outcome.manifest.results[0]?.blockers[0]).toContain('surface cli has not passed Code Conductor workstation');
       expect(outcome.manifest.mergeDecision?.decision).toBe('changes_required');
+    } finally { rmSync(temp, { recursive: true, force: true }); }
+  });
+
+  it('blocks an adapter whose execution surface does not match the planned surface', async () => {
+    const temp = mkdtempSync(join(tmpdir(), 'cc-run-surface-test-'));
+    try {
+      const adapters = new Map<string, HarnessAdapter>([['codex', new FakeAdapter('codex', 'openai', 'fake-codex', 'acp')], ['claude', new FakeAdapter('claude', 'anthropic')]]);
+      const outcome = await executeTask(resolve('.'), createTask('generic implementation', 'R1', resolve('.')), {
+        execute: true,
+        adapters,
+        store: new RunStore(temp),
+        worktrees: new FakeWorktrees() as unknown as WorktreeManager,
+        gateExecutor: () => ({ status: 0, stdout: 'ok', stderr: '' }),
+        isHarnessTrusted: () => true,
+      });
+      expect(outcome.manifest.results[0]?.status).toBe('blocked');
+      expect(outcome.manifest.results[0]?.blockers[0]).toContain('configured for cli');
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
 });
