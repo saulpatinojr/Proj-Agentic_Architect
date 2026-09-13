@@ -9,14 +9,17 @@ describe('contracts schema', () => {
     for (const name of ['TaskEnvelope', 'AgentAssignment', 'AgentResult', 'Evidence', 'Finding', 'GateResult', 'ReviewResult', 'MergeDecision', 'RunManifest']) expect(schema.$defs?.[name]).toBeDefined();
   });
 
-  it('validates a TaskEnvelope and rejects an invalid risk class', () => {
-    const valid = { id: 'T-1', objective: 'test', acceptanceCriteria: [], risk: 'R1', constraints: [], createdAt: new Date().toISOString() };
+  it('validates a TaskEnvelope with optional specialization hints and rejects an invalid risk class', () => {
+    const valid = { id: 'T-1', objective: 'test', acceptanceCriteria: [], risk: 'R1', constraints: [], specializations: ['aws'], createdAt: new Date().toISOString() };
     expect(validateContract('TaskEnvelope', valid).ok).toBe(true);
     expect(validateContract('TaskEnvelope', { ...valid, risk: 'R9' }).ok).toBe(false);
   });
 
-  it('validates local validator and awaiting external result states', () => {
-    const result = { taskId: 'T-1', assignmentId: 'A-1', agentId: 'researcher-perplexity', role: 'researcher', stance: 'neutral', provider: 'perplexity', harness: 'perplexity', billingChannel: 'manual', status: 'awaiting_external', changes: [], tests: [], evidence: [], findings: [], risks: [], blockers: ['manual'], recommendation: 'human_required' };
+  it('validates execution surface on assignments/results without making it mandatory for old stored evidence', () => {
+    const assignment = { id: 'A-1', taskId: 'T-1', agentId: 'builder-kiro', role: 'builder', stance: 'constructive', provider: 'aws', harness: 'kiro', surface: 'acp', billingChannel: 'subscription', authority: ['modify_worktree'], dependsOn: [] };
+    expect(validateContract('AgentAssignment', assignment).ok).toBe(true);
+
+    const result = { taskId: 'T-1', assignmentId: 'A-1', agentId: 'researcher-perplexity', role: 'researcher', stance: 'neutral', provider: 'perplexity', harness: 'perplexity', surface: 'manual', billingChannel: 'manual', status: 'awaiting_external', changes: [], tests: [], evidence: [], findings: [], risks: [], blockers: ['manual'], recommendation: 'human_required' };
     expect(validateContract('AgentResult', result).ok).toBe(true);
   });
 });
