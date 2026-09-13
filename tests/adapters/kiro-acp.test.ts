@@ -37,6 +37,13 @@ function adapter(): KiroAcpAdapter {
   return new KiroAcpAdapter({ command: process.execPath, args: [fixture] });
 }
 
+function expectNoPrivilegedClientCapabilities(stderr: string): void {
+  expect(stderr).toContain('CLIENT_CAPS:');
+  expect(stderr).toContain('"readTextFile":false');
+  expect(stderr).toContain('"writeTextFile":false');
+  expect(stderr).toContain('"terminal":false');
+}
+
 describe('Kiro ACP adapter', () => {
   it('initializes, creates a session, sends a prompt, and collects streamed assistant text', async () => {
     const outcome = await adapter().execute({ task: task(), assignment: assignment(), cwd: resolve('.'), timeoutMs: 5000, prompt: 'NORMAL' });
@@ -45,13 +52,13 @@ describe('Kiro ACP adapter', () => {
     expect(outcome.timedOut).toBe(false);
     expect(outcome.stdout).toContain('Fake ACP response.');
     expect(outcome.stdout).toContain('CC_RESULT_JSON:');
-    expect(outcome.stderr).toContain('CLIENT_CAPS:{}');
+    expectNoPrivilegedClientCapabilities(outcome.stderr);
   });
 
-  it('advertises no client filesystem/terminal capabilities and cancels permission requests by default', async () => {
+  it('advertises filesystem/terminal capabilities as unavailable and cancels permission requests by default', async () => {
     const outcome = await adapter().execute({ task: task(), assignment: assignment(), cwd: resolve('.'), timeoutMs: 5000, prompt: 'REQUEST_PERMISSION' });
 
-    expect(outcome.stderr).toContain('CLIENT_CAPS:{}');
+    expectNoPrivilegedClientCapabilities(outcome.stderr);
     expect(outcome.stderr).toContain('[ACP permission cancelled]');
     expect(outcome.stderr).toContain('PERMISSION_OUTCOME:cancelled');
     expect(outcome.stdout).toContain('Permission was cancelled.');
