@@ -155,7 +155,7 @@ harnesses:
         kind: ide
         interactive: true
         machine_execution: false
-        requires_local_client: false
+        requires_local_client: true
       cli:
         kind: cli
         commands: [agy]
