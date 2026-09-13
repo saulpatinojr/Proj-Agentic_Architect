@@ -37,6 +37,8 @@ export interface HarnessAdapter {
   execute(request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome>;
 }
 
+const ACP_CANCEL_GRACE_MS = 150;
+
 function commandExists(command: string): boolean {
   const probe = process.platform === 'win32' ? 'where' : 'which';
   return spawnSync(probe, [command], { stdio: 'ignore' }).status === 0;
@@ -118,9 +120,9 @@ export interface KiroAcpAdapterOptions {
 /**
  * Kiro adapter using the official stable ACP v1 TypeScript SDK over stdio.
  *
- * The client deliberately advertises no filesystem or terminal capabilities.
- * Permission requests are cancelled by default until the installed Kiro client
- * and permission model have passed the workstation validation in issue #11.
+ * The client advertises filesystem read/write and terminal capabilities as
+ * unavailable/false. Permission requests are cancelled by default until the
+ * installed Kiro client and permission model pass workstation validation.
  */
 export class KiroAcpAdapter implements HarnessAdapter {
   readonly id = 'kiro';
@@ -187,7 +189,13 @@ export class KiroAcpAdapter implements HarnessAdapter {
             timer = setTimeout(async () => {
               timedOut = true;
               try {
-                if (sessionId) await ctx.notify(acp.methods.agent.session.cancel, { sessionId });
+                if (sessionId) {
+                  await ctx.notify(acp.methods.agent.session.cancel, { sessionId });
+                  // ACP cancel is a notification, so delivery completion does not
+                  // mean the agent has already processed it. Give the peer a
+                  // short bounded grace period before tearing down stdio.
+                  await new Promise((resolve) => setTimeout(resolve, ACP_CANCEL_GRACE_MS));
+                }
               } catch {
                 // Teardown below remains authoritative even if cancellation cannot be delivered.
               }
