@@ -38,9 +38,9 @@ describe('task planner', () => {
     expect(builder?.surface).toBe('acp');
   });
 
-  it('routes GCP work to the Google specialist lane even while it remains interactive', () => {
+  it('routes GCP work to the Google specialist lane when that local lane is available', () => {
     const task = createTask('Implement the Google Cloud Run service on GCP', 'R1', resolve('.'));
-    const plan = planTask(resolve('.'), task, { availableHarnesses: new Set(['codex', 'claude']) });
+    const plan = planTask(resolve('.'), task, { availableHarnesses: new Set(['codex', 'claude', 'antigravity']) });
     const builder = plan.assignments.find((a) => a.role === 'builder');
     expect(builder?.harness).toBe('antigravity');
     expect(builder?.provider).toBe('google');
