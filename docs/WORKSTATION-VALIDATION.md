@@ -51,8 +51,21 @@ agy --version
 terraform version
 ansible --version
 pwsh --version
+```
+
+For the **current development checkout**, run Doctor through the repository script so the local TypeScript build is produced explicitly:
+
+```bash
+npm run cc:doctor
+```
+
+For an **installed release** after #8/#14 packaging lands, the equivalent customer-facing invocation is:
+
+```bash
 cc doctor .
 ```
+
+Do not assume `cc` is already on `PATH` when validating an un-packaged development checkout.
 
 Missing optional tool commands are not failures when the active repository profile does not require them.
 
