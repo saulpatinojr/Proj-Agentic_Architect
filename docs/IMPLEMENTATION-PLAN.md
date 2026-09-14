@@ -2,7 +2,7 @@
 
 ## Goal
 
-Deliver a working orchestration system for VS Code that coordinates existing subscription-backed AI clients and official platform integrations rather than recreating them. The v0.1 design remains workstation-first, provider-neutral, evidence-driven, and safe to extend.
+Deliver a working orchestration system for VS Code that coordinates existing subscription-backed AI clients and official platform integrations rather than recreating them. The v0.1 design remains workstation-first, provider-neutral, evidence-driven, surface-aware, and safe to extend.
 
 ## Architecture layers
 
@@ -10,17 +10,22 @@ Deliver a working orchestration system for VS Code that coordinates existing sub
 
 VS Code is the primary operator UI. A thin Code Conductor extension exposes Team, Runs, Gates, Connections, Packs, and Usage views and deep-links into native agent sessions, terminals, diffs, Source Control, and GitHub PR tooling.
 
+Code Conductor v0.x does not require a standalone desktop application. An optional thin `cc` CLI/TUI uses the same versioned core/runtime as the extension.
+
+The production VS Code package must contain or reliably resolve the compiled Code Conductor runtime required by normal users. Customer repositories must not need this source repository or an `npm run build` step.
+
 ### 2. Runtime control plane
 
 Code Conductor Core owns:
 
 - task envelope creation
 - DAG/dependency scheduling
-- capability-aware routing
+- capability/surface-aware routing
 - risk classification
 - role and stance assignment
 - authority checks
 - bounded retry/escalation
+- cross-provider assignment mediation
 - context-selection/preparation policy
 - evidence aggregation
 - disagreement arbitration
@@ -28,18 +33,36 @@ Code Conductor Core owns:
 
 The core must remain vendor-neutral.
 
-### 3. Harness plane
+### 3. Surface-aware harness plane
 
-Initial supported execution lanes:
+Initial supported provider lanes:
 
 - GitHub Copilot / GitHub platform
 - Claude Code
 - OpenAI Codex
-- Kiro CLI
+- Kiro
 - Google Antigravity
 - Perplexity research: manual Pro-client mode plus optional official MCP/API mode
 
-Prefer official CLI/headless interfaces for orchestrated work where officially supported. Preserve each vendor's native authentication boundary. AHP may be used where appropriate, but only behind a replaceable adapter.
+A harness may independently expose a VS Code/IDE surface, CLI/headless execution, ACP, MCP, platform-native workflow/API, separately billed SDK/API, and/or a manual human-in-the-loop surface. A single generic `cli_preferred` assumption is not sufficient for the long-term adapter model.
+
+Code Conductor must preserve provider-native subagents/agents, skills, hooks, commands/plugins/Powers, permissions, sessions, MCP, and native IDE capabilities where officially supported. Provider-local subagents may operate within an assigned task, while cross-provider AI invocation remains mediated by Code Conductor so authority, billing channel, worktree ownership, evidence, and readiness remain controlled.
+
+Preserve each vendor's native authentication boundary. AHP or other compatibility layers may be used only behind replaceable adapters and must not become the core orchestration contract.
+
+#### Kiro preferred boundary
+
+Kiro is not treated as an interchangeable generic CLI worker. For the VS Code-centered product, `kiro-cli acp` is the preferred Kiro client/harness boundary where current policy and installed-version validation permit it.
+
+Kiro receives primary routing preference for:
+
+- specification/requirements
+- architecture/design planning
+- task decomposition and verification planning
+- AWS-focused architecture/engineering
+- Kiro-native Power/agent workflows
+
+Kiro may still implement or review code when policy/capability calls for it. Unattended execution remains fail-closed until current ACP/subscription-policy and read/modify authority are validated.
 
 ### 4. Context-preparation plane
 
@@ -67,6 +90,8 @@ Microsoft APM is authoritative for reusable agent-pack dependency/distribution/i
 
 Pinned targets for the foundation are Copilot, Claude, Codex, Kiro, Antigravity, and converged Agent Skills.
 
+The legacy agent/skill library migration is a dedicated parallel workstream. It requires 100% source-lineage coverage before legacy retirement: immutable intake, inventory, classification, duplicate/merge lineage, canonical destination, provider overlays where genuinely required, and semantic validation.
+
 ### 6. Tool/reference plane
 
 Only vendor-official or explicitly approved Code Conductor first-party MCPs belong in the catalog. Enable them per repository profile, not globally by default.
@@ -85,33 +110,54 @@ Initial catalog:
 
 MCP provides tools/resources. It does not schedule the team.
 
+Deterministic engineering capabilities such as Terraform, Ansible, PowerShell, Git/GitHub CLI, Azure/AWS/GCP CLIs, Kubernetes/Helm, language toolchains, linters, build systems, and test runners are governed tools, not peer GenAI agents. Native extensions remain first-class human surfaces; approved CLIs may be used by agents/gates under assignment/risk policy.
+
 GitHub Copilot has a separate configuration boundary: `.github/mcp.json` is minimal repository-scoped Copilot CLI configuration; GitHub.com Copilot code-review/cloud MCP servers are configured through repository settings and built-in GitHub MCP capability rather than a custom token-minter workflow.
 
-### 7. Change plane
+### 7. Startup lifecycle
+
+First run performs explicit local bootstrap/discovery:
+
+- workspace/config detection
+- provider extension/CLI/ACP/platform/manual surface inventory
+- APM manifest/lock/projection checks
+- deterministic tool inventory
+- safe auth-boundary/health checks
+- smoke/trust validation before unattended execution
+
+Warm starts use cached local non-secret health/trust state and lightweight fingerprints. Do not start AI provider processes, Kiro ACP, MCP servers, or APM materialization unless the active task/config requires them.
+
+### 8. Change plane
 
 Git owns code state. GitHub owns repository, PR, Actions, review, and merge state.
 
 Every modifying assignment should receive a task/agent branch and isolated worktree. Review-only assignments are normally read-only. Integration must be validated again after combining work.
 
-## Team roles
+## Team and provider specialization
+
+Primary specialization is a routing preference, not exclusivity.
+
+| Provider / harness | Primary responsibility | Secondary eligible work |
+|---|---|---|
+| Code Conductor | orchestration, routing, risk, authority, evidence, gates, arbitration | coordinates rather than competes |
+| Kiro | specification/design/task planning, AWS specialist, Kiro-native workflows | implementation, review |
+| Claude Code | large-codebase engineering, refactoring, deep codebase reasoning | implementation, challenger/reviewer |
+| Codex | implementation, debugging, testing, repository execution | review/challenge, focused planning |
+| GitHub Copilot + GitHub | GitHub Gatekeeper: PR review/re-review, Actions, repository/merge context | repository-native coding assistance |
+| Perplexity | external research discovery/synthesis | comparison/reconnaissance; automated API/MCP only when explicitly paid/enabled |
+| Google Antigravity | Google/GCP specialist and alternate independent worker/reviewer | implementation/challenge after authority validation |
 
 ### Conductor
 Neutral coordinator. Assigns work, composes the task DAG, enforces policy, and escalates.
 
-### Kiro Specification Lead
-Primary requirements/specification/design/task-planning role for substantial feature work. Kiro Pro's supported CLI/headless capability can also be used as a worker lane without inventing an API wrapper.
+### Spec Lead
+Primary requirements/specification/design/task-planning role for substantial feature work. Kiro is preferred, especially for AWS/Kiro-native workflows.
 
-### Perplexity Research Captain
-Primary external research discovery role. In subscription-only mode, research is human-in-the-loop through the Pro client. Automated research requires the official MCP/API lane and explicit spend policy.
+### Research Captain
+Primary external research discovery role. Perplexity is preferred. In subscription-only mode, research is human-in-the-loop through the Pro client. Automated research requires the official MCP/API lane and explicit spend policy.
 
-### Claude Builder
-Primary constructive implementation/refactoring/codebase-reasoning worker through Claude Code and Claude Max authentication.
-
-### Codex Builder
-Primary constructive implementation/debugging/test worker through Codex and ChatGPT Business authentication.
-
-### Google Specialist
-Independent Google/GCP specialist and alternate implementation/review lane through Antigravity.
+### Builder
+Implementation role. Provider selection is based on specialization and capability. Claude is preferred for large/refactoring-heavy codebase work; Codex for implementation/debugging/testing/repository execution; Kiro for AWS/spec-driven work; Antigravity for Google/GCP work after authority validation.
 
 ### GitHub Gatekeeper
 GitHub Copilot plus GitHub platform capabilities. Owns GitHub-native PR review/re-review, repository context, Actions/PR inspection, and PR-quality checks. It is not merely another generic coder.
@@ -155,28 +201,32 @@ Core contracts are:
 
 Each result records task id, agent id, role, stance, provider, harness, billing channel, status, changes, tests, evidence, findings, risks, blockers, and recommendation.
 
+The adapter capability model must evolve to describe provider surfaces and native capabilities without forcing those details into the core task/result contract.
+
 ## Authentication design
 
 Code Conductor must not store consumer OAuth tokens or impersonate vendor clients.
 
 - GitHub/Copilot: official GitHub/VS Code authentication.
-- Claude Code: Claude subscription authentication for Max; warn when API-key environment variables could change billing behavior.
-- Codex: ChatGPT subscription authentication where supported.
-- Kiro: Kiro Pro official authentication; use supported Kiro CLI mechanisms for subscription execution when configured.
+- Claude Code: official Claude account/subscription authentication; warn when API-key environment variables could change billing behavior.
+- Codex: ChatGPT/Codex subscription authentication where supported.
+- Kiro: official Kiro authentication; ACP/native automation must remain within current Kiro subscription/policy boundaries.
 - Antigravity: official Google sign-in/keyring flow.
 - Perplexity: Pro consumer login for manual mode; official API key only for explicitly enabled MCP automation.
 
-`cc doctor` detects relevant client availability, auth status where safely discoverable, conflicting API-key environment variables, repository trust, Git state, APM state, MCP health, and sandbox capability. It never prints secret values.
+`cc doctor` detects relevant client/surface availability, auth status where safely discoverable, conflicting API-key environment variables, repository trust, Git state, APM state, MCP health, deterministic tools, and sandbox capability. It never prints secret values.
 
-## CLI-first execution decision
+## Surface-aware execution decision
 
-CLI/headless clients are the standard machine-facing adapters where officially supported because they are composable, observable, scriptable, and can run independently of UI focus. The VS Code extension remains the human cockpit.
+Do not reduce the product to either "extensions" or "CLIs." Use the best official surface for the job:
 
-Exceptions are capability-driven:
-
-- GitHub Copilot/GitHub workflow operations use GitHub-native PR/review/Actions semantics.
-- Perplexity Pro remains manual unless official paid MCP/API access is explicitly enabled.
-- Interactive vendor clients remain available for debugging, takeover, and human collaboration.
+- native IDE extensions are first-class human interaction surfaces;
+- official CLI/headless execution is preferred for machine orchestration when the provider supports it safely;
+- ACP is the preferred Kiro client/harness boundary for Code Conductor where validated;
+- GitHub/Copilot workflow operations use GitHub-native PR/review/Actions semantics;
+- Perplexity Pro remains manual unless official paid MCP/API access is explicitly enabled;
+- deterministic CLIs are governed tools, not peer AI providers;
+- cross-provider AI invocation always returns through Code Conductor assignment/evidence policy.
 
 ## Repository layout
 
@@ -248,7 +298,7 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - capability registry
 - structured evidence/run persistence
 
-### Phase 2 — Local execution — implemented baseline, workstation validation next
+### Phase 2 — Local execution — implemented baseline, architecture delta next
 
 - CLI `cc`
 - `cc doctor`
@@ -256,12 +306,18 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - Git/worktree manager
 - Codex adapter
 - Claude adapter
-- Kiro adapter
+- initial Kiro adapter
 - Antigravity safety boundary
 - workstation trust/smoke validation
 - context-preparation package/CLI with lossless default and explicit aggressive mode
 
-### Phase 3 — Package/tool integration — implemented baseline, live validation next
+Required v0.1 delta before full dogfood:
+
+- replace generic capability assumptions with surface-aware capability discovery (#10);
+- add/validate Kiro ACP-first client path (#11);
+- encode provider specialization/routing rules and tests (#12).
+
+### Phase 3 — Package/tool integration — implemented baseline, live validation + agent-catalog work next
 
 - APM adapter
 - approved MCP catalog
@@ -270,6 +326,8 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - official-reference policies
 - pack compilation/materialization validation
 - context-optimizer experimental MCP adapter; official SDK/current-protocol migration remains a pre-GA task
+- begin immutable inventory/lineage migration of the legacy agent corpus (#13)
+- validate representative deterministic-tool profiles as required (#15)
 
 ### Phase 4 — GitHub Gatekeeper — implemented baseline, dogfood next
 
@@ -281,7 +339,7 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - human merge boundary
 - repository-specific `.github/skills/code-review` instructions
 
-### Phase 5 — VS Code cockpit — thin foundation implemented, interactive validation next
+### Phase 5 — VS Code cockpit/productization — thin foundation implemented, product validation next
 
 - Team
 - Runs
@@ -289,30 +347,69 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - Connections
 - Packs
 - Usage, including clearly labeled estimated context-optimization telemetry
-
-No replacement chat UI.
+- first-run/bootstrap and warm-start/lazy-activation behavior (#9)
+- package compiled runtime so customer repositories do not need this source tree (#8)
+- preserve/deep-link native provider surfaces rather than building a replacement chat UI
 
 ### Phase 6 — Evaluation / current next phase
 
-Run the first real workstation dogfood sequence:
+Execute in this order:
 
-1. sync/verify `main` and run `cc doctor`;
-2. authenticate supported subscription-backed clients using official mechanisms;
-3. smoke-test Codex, Claude Code, and Kiro in read mode, then isolated modify mode;
-4. verify selected MCP/reference profiles without granting unnecessary write authority;
-5. exercise context preparation in lossless mode on representative repository inputs; test aggressive mode only on content where comment removal is explicitly acceptable;
-6. execute a real R1 task through Code Conductor using an isolated worktree and deterministic validation;
-7. raise the same scenario to R2 with a different-provider challenger plus GitHub Gatekeeper review/re-review;
-8. capture structured evidence, resolve defects, and validate the VS Code cockpit against the run;
-9. migrate/validate the context optimizer MCP adapter with the official MCP TypeScript SDK/current protocol before calling that adapter GA;
-10. prepare the v0.1 release candidate.
+1. merge/record ADR 0008/0009 and the approved roadmap sequence;
+2. implement #10 surface-aware capability schema and provider mapping;
+3. implement/spike #11 Kiro ACP-first path with fail-closed policy/authority validation;
+4. implement #12 provider specialization and routing tests;
+5. update Doctor/Connections/Team/workstation validation for extensions + CLI/ACP/platform/manual surfaces;
+6. sync/verify `main` and run `cc doctor` on the target workstation;
+7. authenticate supported subscription-backed clients using official mechanisms;
+8. smoke-test the actual selected Codex/Claude/Kiro surfaces in read mode, then isolated modify mode;
+9. verify selected MCP/reference and deterministic-tool profiles without unnecessary write authority;
+10. exercise context preparation in lossless mode on representative repository inputs;
+11. execute a real R1 task through Code Conductor using an isolated worktree and deterministic validation;
+12. raise the same scenario to R2 with a different-provider challenger plus GitHub Gatekeeper review/re-review;
+13. capture structured evidence, resolve defects, and validate first-run/warm-start/VS Code cockpit behavior against the run;
+14. migrate/validate the context optimizer MCP adapter with the official MCP TypeScript SDK/current protocol before calling that adapter GA;
+15. prepare the v0.1 release candidate.
 
-Track task success, defects caught, false positives, retries, latency, subscription/API lane, API spend, estimated context reduction, and human interventions. Do not treat heuristic token estimates as vendor cost measurements.
+Track task success, defects caught, false positives, retries, latency, subscription/API lane, API spend, estimated context reduction, human interventions, selected provider surface, and native-capability use. Do not treat heuristic token estimates as vendor cost measurements.
+
+### Parallel workstreams
+
+These may advance without silently blocking the runtime release path:
+
+- #13 legacy Agent Catalog/APM migration: immutable intake, 100% lineage ledger, deduplication/canonicalization, modular packages, projections, semantic validation;
+- #14 Marketplace/VSIX/CLI/release provenance/customer trust pipeline;
+- #16 APM Agent Plugin ↔ Kiro Powers interoperability research;
+- #18 current Antigravity `agy` safety revalidation.
+
+Pull a parallel item into the active release only when a concrete acceptance criterion depends on it.
 
 ## First dogfood scenario
 
-Use this repository itself. The first real R1/R2 run must exercise the already-built runtime rather than manually reproducing its behavior. A modifying builder works in an isolated worktree, an independent role reviews/challenges it, deterministic gates run, GitHub Gatekeeper reviews the PR, and Code Conductor captures the evidence/readiness result.
+Use this repository itself. The first real R1/R2 run must exercise the already-built runtime plus the approved surface-aware delta rather than manually reproducing its behavior. A modifying builder works in an isolated worktree, an independent role reviews/challenges it, deterministic gates run, GitHub Gatekeeper reviews the PR, and Code Conductor captures the evidence/readiness result.
+
+Kiro should be exercised through the approved ACP/native boundary if selected for the scenario; do not count obsolete generic Kiro execution as proof of the post-ADR design.
 
 ## Release gate for v0.1
 
-A clean workstation must be able to clone the repo, install/verify APM targets, authenticate supported official clients, run `cc doctor`, safely prepare bounded context, bootstrap another repo, execute an R1/R2 task using independent roles, isolate changes, run deterministic checks, create a GitHub PR, surface GitHub-native review, collect structured evidence, and enforce human approval where policy requires it. The context optimizer's direct/CLI path may ship in v0.1 when these boundaries pass; its MCP adapter remains experimental until the official-SDK/current-protocol gate is satisfied.
+A clean workstation must be able to:
+
+- install Code Conductor through the release extension/VSIX path without cloning this repository;
+- open an ordinary repository and complete first-run discovery/bootstrap;
+- restart VS Code with fast lazy warm-start behavior and no unnecessary provider/MCP/APM launches;
+- install/verify required APM targets;
+- authenticate supported official clients through their native boundaries;
+- run `cc doctor` with surface-aware/provider/tool status;
+- safely prepare bounded context;
+- bootstrap another repo;
+- execute an R1/R2 task using independent roles and the approved provider surfaces;
+- isolate changes;
+- run deterministic checks;
+- create a GitHub PR;
+- surface GitHub-native review/re-review;
+- collect structured evidence;
+- enforce human approval where policy requires it.
+
+For Kiro, the release path must validate the approved ACP/native boundary and current subscription/authority behavior before unattended use. The context optimizer's direct/CLI path may ship in v0.1 when its boundaries pass; its MCP adapter remains experimental until the official-SDK/current-protocol gate is satisfied.
+
+Public/customer publication additionally requires the release-engineering/trust controls tracked in #14 and the repository-governance settings tracked in #3 to be satisfied or explicitly documented as release blockers.
