@@ -118,6 +118,13 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
         try {
           const outcome = await adapter.execute(request);
           const parsed = parseAgentResult(assignment, outcome);
+          if (outcome.timedOut) {
+            parsed.status = 'failed';
+            parsed.recommendation = 'changes_required';
+            parsed.blockers = [...new Set([...parsed.blockers, `Harness ${assignment.harness} surface ${assignment.surface ?? adapter.executionSurface} timed out; automatic retry was suppressed to avoid repeating potentially paid or side-effecting work.`])];
+            result = parsed;
+            break;
+          }
           if (parsed.status !== 'failed' || attempt === 1) result = parsed;
         } catch (error) { lastError = error; }
       }
