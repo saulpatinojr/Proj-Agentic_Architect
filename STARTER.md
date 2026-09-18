@@ -30,7 +30,7 @@ The repository foundation is implemented rather than architecture-only:
 - the first-party context optimizer exists as a bounded context-preparation component with lossless default behavior, explicit aggressive mode, workspace/sensitive-path protection, and estimated-token telemetry;
 - the context optimizer's MCP transport is intentionally experimental pending official MCP TypeScript SDK/current-protocol validation;
 - `cc validate`, `doctor`, `plan`, `run`, `harness-smoke`, MCP/APM, GitHub-gate, `context-stats`, and `compress` command paths exist;
-- the VS Code extension foundation exposes Team, Runs, Gates, Connections, Packs, and Usage;
+- the VS Code extension exposes Team, Runs, Gates, Connections, Packs, and Usage and now bundles the compiled Code Conductor runtime for packaged use;
 - CodeQL, dependency-review configuration, repository CI, APM audit, npm lockfile validation, and secret scanning are part of the GitHub governance baseline;
 - repository-scoped Copilot CLI MCP configuration is minimal under `.github/mcp.json`; GitHub.com Copilot MCP configuration remains a repository-settings/platform concern rather than a custom token-minting workflow;
 - multiple GitHub Copilot Gatekeeper review rounds have been exercised and concrete findings have been addressed with targeted regression coverage;
@@ -38,26 +38,29 @@ The repository foundation is implemented rather than architecture-only:
 - issues #8-#18 capture the approved thin-client, startup, harness, Kiro, routing, agent-catalog, release, tooling, APM/Kiro, Perplexity, and Antigravity workstreams;
 - ADR 0008 locks the no-standalone-app/thin VS Code + optional `cc` client and lazy startup model;
 - ADR 0009 locks the surface-aware harness model, provider-native capability preservation, Kiro ACP-first preference, provider specializations, and deterministic-tool separation;
+- the surface-aware capability schema/routing implementation is on `main`, including explicit execution surfaces and specialization tests;
+- the guarded Kiro ACP SDK client path is on `main`; live subscription/policy and read/modify trust remain fail-closed until workstation validation;
+- first-run/warm-start fingerprinting, lazy discovery, and self-contained VS Code bundle verification are on `main`;
+- immutable Agent Catalog intake/lineage tooling is on `main`; the actual legacy corpus migration remains the parallel #13 workstream;
+- the VSIX packaging foundation is on `main` with pinned official `@vscode/vsce`; Marketplace publication/provenance automation remains under #14;
 - the large legacy agent/skill corpus migration is a parallel tracked workstream under issue #13 with a 100% source-lineage requirement.
 
 The authoritative current status is `docs/STATUS.md`.
 
 ## Immediate work order
 
-Do not spend release-validation effort proving integration paths that ADR 0009 intentionally changes.
+The architecture/runtime delta from #10/#11/#12 is implemented. Do not reopen it unless validation evidence requires a superseding ADR.
 
-1. Start from current `main`, review `docs/STATUS.md`, issue #7, and the active issues before creating a branch.
-2. Complete the v0.1 architecture delta represented by #10, #11, and #12: surface-aware capability schema, Kiro ACP-first integration spike/policy boundary, and provider specialization/routing tests.
-3. Update the workstation validation path so native VS Code extensions and provider-native capabilities are checked alongside CLI/ACP execution surfaces.
-4. Keep Kiro unattended execution fail-closed until the installed Kiro version, ACP behavior, subscription-policy boundary, and read/modify authority are validated.
-5. Keep Antigravity unattended execution blocked until ADR 0004 is superseded with current evidence; continue treating it as the Google/GCP specialist lane.
-6. After the revised harness/routing implementation is green, follow issue #4 and `docs/WORKSTATION-VALIDATION.md` on the actual VS Code execution workstation.
-7. Validate official subscription authentication and the required read/modify boundaries for Codex, Claude Code, and Kiro using their approved surfaces.
-8. Validate only the MCP/reference and deterministic-tool profiles required by the repository; keep the context-optimizer MCP adapter experimental until the official-SDK/current-protocol gate is completed.
-9. Execute the first real R1 Code Conductor dogfood task in an isolated modifying worktree, then raise it to R2 with a different-provider challenger and GitHub Gatekeeper participation.
-10. Capture structured evidence, fix defects found, validate the VS Code cockpit/startup behavior against the run, and prepare a v0.1 release candidate only when the release definition is satisfied.
-
-In parallel, issue #13 may inventory and migrate the legacy agent/skill corpus into modular APM packages. Do not make completion of the full corpus migration a hidden blocker for v0.1 unless a specific required persona/skill is needed for the release scenario.
+1. Start from current `main`, review `docs/STATUS.md`, issue #4, and `docs/WORKSTATION-VALIDATION.md`.
+2. Install/activate the packaged extension on the target VS Code workstation and validate first-run discovery plus warm lazy startup.
+3. Validate official subscription authentication and surface-specific read/modify trust for Codex, Claude Code, and Kiro ACP. Kiro remains fail-closed until installed-version/policy/authority validation passes.
+4. Keep Antigravity unattended execution blocked until ADR 0004 is superseded with current evidence; continue treating it as the Google/GCP specialist lane.
+5. Validate only the MCP/reference and deterministic-tool profiles required by the dogfood scenario.
+6. Execute the first real R1 Code Conductor task in an isolated modifying worktree, then raise it to R2 with a different-provider challenger and GitHub Gatekeeper participation.
+7. Capture structured evidence, fix defects found, and validate the VS Code cockpit/startup behavior against the real run.
+8. In parallel, use the merged Agent Catalog intake tool against the actual legacy corpus and review migration batches into modular APM packages with 100% source-lineage accounting.
+9. Continue the merged VSIX packaging foundation into #14 Marketplace/provenance/SBOM/attestation/publication work.
+10. Prepare a v0.1 release candidate only when the release definition and repository-governance requirements are satisfied.
 
 ## Locked operating model
 

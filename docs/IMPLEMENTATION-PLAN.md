@@ -298,7 +298,7 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - capability registry
 - structured evidence/run persistence
 
-### Phase 2 — Local execution — implemented baseline, architecture delta next
+### Phase 2 — Local execution — implemented baseline, workstation validation next
 
 - CLI `cc`
 - `cc doctor`
@@ -311,11 +311,13 @@ Do not create empty scaffolding merely to make the tree look complete; create di
 - workstation trust/smoke validation
 - context-preparation package/CLI with lossless default and explicit aggressive mode
 
-Required v0.1 delta before full dogfood:
+The required architecture delta is implemented in the repository:
 
-- replace generic capability assumptions with surface-aware capability discovery (#10);
-- add/validate Kiro ACP-first client path (#11);
-- encode provider specialization/routing rules and tests (#12).
+- surface-aware capability discovery/routing and provider-native capability metadata (#10);
+- guarded Kiro ACP-first client path with surface-specific trust and fail-closed permissions (#11);
+- provider specialization/routing rules and representative tests (#12).
+
+Remaining work is live installed-client/subscription/authority validation, not reimplementation of these boundaries.
 
 ### Phase 3 — Package/tool integration — implemented baseline, live validation + agent-catalog work next
 
@@ -326,7 +328,7 @@ Required v0.1 delta before full dogfood:
 - official-reference policies
 - pack compilation/materialization validation
 - context-optimizer experimental MCP adapter; official SDK/current-protocol migration remains a pre-GA task
-- begin immutable inventory/lineage migration of the legacy agent corpus (#13)
+- immutable inventory/lineage intake tooling is implemented; run it against the actual legacy corpus and continue reviewed migration/canonicalization batches (#13)
 - validate representative deterministic-tool profiles as required (#15)
 
 ### Phase 4 — GitHub Gatekeeper — implemented baseline, dogfood next
@@ -347,29 +349,25 @@ Required v0.1 delta before full dogfood:
 - Connections
 - Packs
 - Usage, including clearly labeled estimated context-optimization telemetry
-- first-run/bootstrap and warm-start/lazy-activation behavior (#9)
-- package compiled runtime so customer repositories do not need this source tree (#8)
+- first-run/bootstrap and warm-start/lazy-activation implementation (#9); live startup validation remains
+- bundled compiled runtime and VSIX packaging foundation so customer repositories do not need this source tree (#8/#14); clean-machine and Marketplace validation remain
 - preserve/deep-link native provider surfaces rather than building a replacement chat UI
 
 ### Phase 6 — Evaluation / current next phase
 
-Execute in this order:
+The architecture/runtime/product foundations above are merged. Execute the live release-readiness path in this order:
 
-1. merge/record ADR 0008/0009 and the approved roadmap sequence;
-2. implement #10 surface-aware capability schema and provider mapping;
-3. implement/spike #11 Kiro ACP-first path with fail-closed policy/authority validation;
-4. implement #12 provider specialization and routing tests;
-5. update Doctor/Connections/Team/workstation validation for extensions + CLI/ACP/platform/manual surfaces;
-6. sync/verify `main` and run `cc doctor` on the target workstation;
-7. authenticate supported subscription-backed clients using official mechanisms;
-8. smoke-test the actual selected Codex/Claude/Kiro surfaces in read mode, then isolated modify mode;
-9. verify selected MCP/reference and deterministic-tool profiles without unnecessary write authority;
-10. exercise context preparation in lossless mode on representative repository inputs;
-11. execute a real R1 task through Code Conductor using an isolated worktree and deterministic validation;
-12. raise the same scenario to R2 with a different-provider challenger plus GitHub Gatekeeper review/re-review;
-13. capture structured evidence, resolve defects, and validate first-run/warm-start/VS Code cockpit behavior against the run;
-14. migrate/validate the context optimizer MCP adapter with the official MCP TypeScript SDK/current protocol before calling that adapter GA;
-15. prepare the v0.1 release candidate.
+1. sync/verify current `main` and install/activate the packaged extension on the target workstation;
+2. run `cc doctor` and validate first-run discovery plus warm lazy startup;
+3. authenticate supported subscription-backed clients using official mechanisms;
+4. smoke-test the selected Codex/Claude/Kiro surfaces in read mode, then isolated modify mode; Kiro ACP remains fail-closed until current subscription-policy and authority behavior are proven;
+5. verify only the MCP/reference and deterministic-tool profiles required by the scenario;
+6. exercise context preparation in lossless mode on representative repository inputs;
+7. execute a real R1 task through Code Conductor using an isolated worktree and deterministic validation;
+8. raise the same scenario to R2 with a different-provider challenger plus GitHub Gatekeeper review/re-review;
+9. capture structured evidence, resolve defects, and validate cockpit/startup/package behavior against the run;
+10. complete the context-optimizer official MCP SDK/current-protocol gate before calling that adapter GA;
+11. finish #14 publication/provenance/customer-trust controls and prepare the v0.1 release candidate.
 
 Track task success, defects caught, false positives, retries, latency, subscription/API lane, API spend, estimated context reduction, human interventions, selected provider surface, and native-capability use. Do not treat heuristic token estimates as vendor cost measurements.
 
