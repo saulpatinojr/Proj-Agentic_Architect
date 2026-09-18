@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, extname, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const TEXT_EXTENSIONS = new Set(['.md', '.mdx', '.txt', '.yml', '.yaml', '.json', '.jsonc', '.toml', '.ini', '.cfg', '.ps1', '.py', '.sh', '.js', '.mjs', '.cjs', '.ts', '.tsx']);
 
@@ -68,6 +69,11 @@ function collectPaths(root, outPath) {
 export function buildInventory(sourceRoot, outputPath) {
   const root = realpathSync(resolve(sourceRoot));
   const out = outputPath ? resolve(outputPath) : undefined;
+  if (out) {
+    const outputRelative = relative(root, out);
+    const outputInsideSource = outputRelative === '' || (outputRelative !== '..' && !outputRelative.startsWith(`..${sep}`));
+    if (outputInsideSource) throw new Error('Refusing to write the inventory ledger inside the immutable source corpus. Choose --out outside --source.');
+  }
   const exactSeen = new Map();
   const normalizedSeen = new Map();
   const entries = [];
@@ -166,7 +172,7 @@ function parseArgs(argv) {
   return args;
 }
 
-if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(new URL(import.meta.url).pathname)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   try {
     const args = parseArgs(process.argv.slice(2));
     if (args.help || !args.source) {
