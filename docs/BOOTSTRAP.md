@@ -40,8 +40,8 @@ Do not copy consumer OAuth/session tokens into repository configuration.
 ## 3. Clone Code Conductor
 
 ```bash
-git clone https://github.com/saulpatinojr/Proj-Agentic_Architect.git
-cd Proj-Agentic_Architect
+git clone https://github.com/saulpatinojr/Proj-Code_Conductor.git
+cd Proj-Code_Conductor
 git switch bootstrap/code-conductor-v0.1
 ```
 

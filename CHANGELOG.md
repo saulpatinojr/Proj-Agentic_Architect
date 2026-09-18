@@ -42,6 +42,7 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - Context-optimizer MCP catalog metadata now distinguishes Code Conductor first-party experimental adapters from vendor-official servers.
 - Replaced the unsupported duplicate `.github/copilot-mcp.json` approach with minimal `.github/mcp.json`; removed the transplanted Copilot setup/token-minter workflow that referenced infrastructure and secrets not owned by this repository.
 - Reconciled Phase 1 tracking: issue #2 is complete and live workstation/R1/R2 validation is tracked in issue #4.
+- Renamed the canonical repository to `saulpatinojr/Proj-Code_Conductor` and the APM package to `proj-code-conductor`; in-tree clone, issue-template, VS Code packaging, and repository-layout references now use the new name. See ADR 0010 and D-001.
 
 ### Security
 

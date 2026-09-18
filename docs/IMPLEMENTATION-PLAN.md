@@ -231,7 +231,7 @@ Do not reduce the product to either "extensions" or "CLIs." Use the best officia
 ## Repository layout
 
 ```text
-Proj-Agentic_Architect/
+Proj-Code_Conductor/
 ├── AGENTS.md
 ├── STARTER.md
 ├── README.md
