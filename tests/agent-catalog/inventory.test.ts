@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { buildInventory } from '../../scripts/agent-catalog-inventory.mjs';
 
@@ -42,6 +43,20 @@ describe('agent catalog immutable intake', () => {
       const binary = ledger.entries.find((entry) => entry.sourcePath === 'binary.bin');
       expect(binary?.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(binary?.notes[0]).toContain('not text-inspected');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses CLI output paths inside the immutable source corpus', () => {
+    const root = mkdtempSync(join(tmpdir(), 'cc-agent-catalog-immutable-'));
+    try {
+      writeFileSync(join(root, 'agent.md'), '# Agent\n');
+      const output = join(root, 'ledger.json');
+      const result = spawnSync(process.execPath, [resolve('scripts/agent-catalog-inventory.mjs'), '--source', root, '--out', output], { encoding: 'utf8' });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('Refusing to write the inventory ledger inside the immutable source corpus');
+      expect(existsSync(output)).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
