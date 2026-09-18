@@ -69,7 +69,7 @@ describe('Kiro ACP adapter', () => {
     const outcome = await adapter().execute({ task: task(), assignment: assignment(), cwd: resolve('.'), timeoutMs: 250, prompt: 'HANG' });
 
     expect(outcome.timedOut).toBe(true);
-    expect(outcome.stderr).toContain('FAKE_CANCEL_RECEIVED:');
+    expect(outcome.stderr).toContain('[ACP cancel requested]');
     expect(outcome.stderr).toContain('Kiro ACP prompt timed out');
   });
 });
