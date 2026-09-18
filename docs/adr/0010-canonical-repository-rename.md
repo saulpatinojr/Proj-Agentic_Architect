@@ -11,7 +11,7 @@ The repository name no longer describes the product. Every other identity surfac
 
 - `README.md` opens with `# Code Conductor`;
 - the root workspace package is `@code-conductor/root`;
-- all 14 workspace packages are scoped `@code-conductor/*` — `adapters`, `apm-adapter`, `cli`, `context-optimizer`, `core`, `evidence`, `gates`, `git`, `github-gate`, `mcp`, `policy`, `runtime`, `schemas`, `workstation`;
+- all 14 packages under `packages/` are scoped `@code-conductor/*` — `adapters`, `apm-adapter`, `cli`, `context-optimizer`, `core`, `evidence`, `gates`, `git`, `github-gate`, `mcp`, `policy`, `runtime`, `schemas`, `workstation`; the fifteenth workspace, `apps/vscode`, is named `code-conductor-vscode`;
 - the decision register, `AGENTS.md`, `STARTER.md`, and `docs/` refer to the product exclusively as Code Conductor.
 
 The residual name is not merely cosmetic. D-006 makes GitHub the repository/PR/Actions/review/merge source of truth, and D-044 makes this tree the single-purpose documentation truth model. A canonical home whose slug names a different product weakens both: it is the string that will be embedded in the published VS Code extension manifest, in GitHub Releases provenance, and in SBOM attestations.
@@ -90,13 +90,14 @@ That set is the completion criterion: after the implementing change, the same se
 
 - `apm.lock.yaml` contains zero occurrences of `proj-agentic-architect`.
 - `apm.yml` declares `dependencies: apm: []` and `mcp: []` — no APM consumers to break.
-- 14 of 14 workspace packages are scoped `@code-conductor/*`; none carry an "agentic architect" name.
+- `package.json` declares `workspaces: ["packages/*", "apps/*"]`, giving 15 workspaces: the 14 under `packages/` are all scoped `@code-conductor/*`, and `apps/vscode` is `code-conductor-vscode`. None carries an "agentic architect" name.
 
 **Deterministic gates that must pass on the implementing PR:**
 
 - `npm run typecheck`
 - `npx vitest run`
 - `cc validate` (declared as the `validate` script in `apm.yml`)
+- `apm audit --ci --policy ./apm-policy.yml` — triggered because `apm.yml` changed. `.github/workflows/apm-audit.yml` runs it on the `pull_request` event via its path filter. Note that the workflow's `push` branch filter does not cover every branch namespace, so on some branches the audit fires only through the PR event.
 
 Per `docs/adr/README.md`, this ADR must not be used to justify bypassing a failing gate. A `cc validate` failure caused by the package rename is a real finding about APM package identity and must be fixed, not waived.
 
@@ -104,6 +105,6 @@ Per `docs/adr/README.md`, this ADR must not be used to justify bypassing a faili
 
 ## Supersedes / Superseded by
 
-- **Amends D-001** (`LOCKED`). Prior wording: "`saulpatinojr/Proj-Agentic_Architect` is the canonical GitHub home for Code Conductor and its durable architecture/code/docs." Amended wording names `saulpatinojr/Proj-Code_Conductor` and is unchanged in every other respect. D-001 is amended, not superseded and not retired: its substance and `LOCKED` status survive intact and only the repository slug it names is replaced. Per the `docs/DECISIONS.md` change rule and the `docs/adr/README.md` change rule, `docs/DECISIONS.md` is updated in the same PR as this ADR.
+- **Amends D-001** (`LOCKED`). Prior wording: "`saulpatinojr/Proj-Agentic_Architect` is the canonical GitHub home for Code Conductor and its durable architecture/code/docs." Amended wording names `saulpatinojr/Proj-Code_Conductor` and adds a trailing `See ADR 0010.` citation, following the convention D-047 through D-053 already use; it is otherwise unchanged. D-001 is amended, not superseded and not retired: its substance and `LOCKED` status survive intact and only the repository slug it names is replaced. Per the `docs/DECISIONS.md` change rule and the `docs/adr/README.md` change rule, `docs/DECISIONS.md` is updated in the same PR as this ADR.
 - **Supersedes:** no prior ADR.
 - **Superseded by:** none.
