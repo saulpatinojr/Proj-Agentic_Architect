@@ -22,10 +22,10 @@ A separate repository `saulpatinojr/Proj-Coder_Conductor` — note the misspelle
 
 ### Why now is the deciding factor
 
-Timing, not aesthetics, forces this decision. D-056 locks customer-facing distribution to the VS Code Marketplace with VSIX and GitHub Releases provenance, and issue #14 (Marketplace publication, provenance, SBOM, attestation) is still open — `docs/STATUS.md` records the VSIX packaging foundation as landed with publication and provenance outstanding. The cost curve is asymmetric:
+The rename is motivated by identity consistency: the slug is the last surface still naming a different product. Given that, timing determines only *when*, and now is strictly the cheapest moment. D-056 locks customer-facing distribution to the VS Code Marketplace with VSIX and GitHub Releases provenance, and issue #14 (Marketplace publication, provenance, SBOM, attestation) is still open — `docs/STATUS.md` records the VSIX packaging foundation as landed with publication and provenance outstanding. The cost curve is asymmetric:
 
 - **Renaming before first publication** costs one ADR, one register amendment, and nine string edits.
-- **Renaming after publication** strands a published extension manifest, GitHub Releases provenance records, and SBOM attestations against a repository slug that no longer resolves as the canonical name. Provenance whose subject URL is a redirect is weaker evidence than provenance whose subject URL is exact, and republishing a Marketplace extension to correct its manifest is a user-visible event.
+- **Renaming after publication** strands a published extension manifest, GitHub Releases provenance records, and SBOM attestations against a repository slug that no longer resolves as the canonical name. Republishing a Marketplace extension to correct its manifest is a user-visible event. Whether artifact attestations remain *verifiable* across a rename depends on GitHub anchoring them to immutable repository identifiers rather than to the human-readable URI; that was not confirmed against official documentation during this review, so this ADR does not rest on it. The argument stands on the manifest and the release record regardless.
 
 The APM package identity has the same shape. `apm.yml` currently declares `dependencies: apm: []` — zero consumers. Renaming the package today breaks nothing. Renaming it after any external pack depends on `proj-agentic-architect` is a breaking dependency change under D-004/D-005.
 
@@ -48,11 +48,19 @@ GitHub issues an automatic permanent redirect from the old repository URL to the
 
 The rename is a repository-settings mutation the maintainer must perform manually. It is outside the current connector's administration surface — the same constraint already recorded against issue #3, which tracks branch-protection and ruleset administration for exactly this reason (`docs/STATUS.md`, `docs/WORKSTATION-VALIDATION.md`). No agent in this run can perform it.
 
-If this PR merges first, `main` briefly carries documentation, an issue-template security link, and a VSIX manifest `repository`/`homepage`/`bugs` URL pointing at a slug that does not yet resolve. That is a window in which a clean-machine bootstrap from `docs/BOOTSTRAP.md` fails and any VSIX built from `main` embeds a dead URL. The required order is: maintainer renames the repository, then this PR merges.
+If this PR merges first, `main` briefly carries documentation, an issue-template security link, and a VSIX manifest `repository`/`homepage`/`bugs` URL pointing at a slug that does not yet resolve.
+
+The manifest case is the worst of these, and it is wider than three metadata fields. `@vscode/vsce` derives `baseContentUrl` from `manifest.repository.url` (`out/package.js:557-558`) and rewrites relative README links and images against it (`:587-608`), and `scripts/package-vscode.mjs` stages the root `README.md`, which carries roughly ten relative documentation links. A VSIX built from `main` inside that window would publish a Marketplace page whose entire documentation link set 404s, not merely its Repository link.
+
+The required order is: maintainer renames the repository, then this PR merges.
+
+For accuracy, one harm this ADR does **not** claim: `docs/BOOTSTRAP.md` step 3 also instructs `git switch bootstrap/code-conductor-v0.1`, a branch that no longer exists on the remote, so a clean-machine bootstrap already fails at that step today regardless of merge order. That is a pre-existing defect recorded as follow-up, not a consequence of this change.
 
 ### APM and lockfile impact
 
-`apm.lock.yaml` does **not** embed the package name — verified: zero occurrences of `proj-agentic-architect` in the lockfile. Therefore:
+`apm.lock.yaml` does **not** embed the package name, and neither do the generated projections whose hashes it records. Verified by measurement with the renamed `apm.yml` in place: all 44 file-backed `content_hash` entries in `apm.lock.yaml` still match their on-disk projections byte for byte, across all three transform classes (byte copy, TOML transform, YAML-frontmatter transform), and no file under `.apm/`, `.claude/`, `.codex/`, `.kiro/`, `.agents/`, or `.github/agents/` contains the package name in either its old or new form.
+
+That measurement is the load-bearing evidence, not the absence of a string: `apm.yml` sets `compilation.source_attribution: true` and `apm-policy.yml` sets `security.audit.fail_on_drift: true`, so had the package name flowed into compiled projection content, the APM audit would fail on drift. It does not. Therefore:
 
 - no APM re-materialization is required;
 - **D-036 is not engaged** by this change. The lockfile is untouched, so the maintainer-materialization / read-only-CI protocol does not need to be exercised.
@@ -86,6 +94,8 @@ This ADR claims only what is verifiable in this tree at authoring time. No CI ru
 
 That set is the completion criterion: after the implementing change, the same search must return zero results for both `Proj-Agentic_Architect` and `proj-agentic-architect` — **excluding this ADR file**, which quotes the retired strings deliberately as the historical record of what was changed. Any automated drift check for the old names must exempt `docs/adr/0010-canonical-repository-rename.md`.
 
+**Blast radius measured against the live repository at review time** — every surface a rename could disturb is empty: 0 releases, 0 tags, 0 open pull requests, 0 rulesets, `has_pages: false`, and 0 APM consumers. Branch-protection reads return 403 to this connector, independently corroborating that the rename itself is maintainer-only.
+
 **Supporting verifications performed:**
 
 - `apm.lock.yaml` contains zero occurrences of `proj-agentic-architect`.
@@ -105,6 +115,6 @@ Per `docs/adr/README.md`, this ADR must not be used to justify bypassing a faili
 
 ## Supersedes / Superseded by
 
-- **Amends D-001** (`LOCKED`). Prior wording: "`saulpatinojr/Proj-Agentic_Architect` is the canonical GitHub home for Code Conductor and its durable architecture/code/docs." Amended wording names `saulpatinojr/Proj-Code_Conductor` and adds a trailing `See ADR 0010.` citation, following the convention D-047 through D-053 already use; it is otherwise unchanged. D-001 is amended, not superseded and not retired: its substance and `LOCKED` status survive intact and only the repository slug it names is replaced. Per the `docs/DECISIONS.md` change rule and the `docs/adr/README.md` change rule, `docs/DECISIONS.md` is updated in the same PR as this ADR.
+- **Amends D-001** (`LOCKED`). Prior wording: "`saulpatinojr/Proj-Agentic_Architect` is the canonical GitHub home for Code Conductor and its durable architecture/code/docs." Amended wording names `saulpatinojr/Proj-Code_Conductor` and adds a trailing `See ADR 0010.` citation, following the convention D-047 through D-053 already use; it is otherwise unchanged. D-001 is amended, not superseded and not retired: its substance and `LOCKED` status survive intact and only the repository slug it names is replaced. The authority for amending in place is the `LOCKED` status definition in `docs/DECISIONS.md` — "approved baseline; change only through an ADR with evidence" — together with the `docs/adr/README.md` change rule, and `docs/DECISIONS.md` is updated in the same PR as this ADR. Note that `docs/DECISIONS.md`'s own "Change rule" section is written for *supersession* ("When a future decision supersedes an entry above") and does not describe amendment in place; it is not the authority relied on here. Extending that section to cover amendment — amend in place, add a `See ADR NNNN.` citation, record the prior wording in the ADR — is recorded as follow-up.
 - **Supersedes:** no prior ADR.
 - **Superseded by:** none.
