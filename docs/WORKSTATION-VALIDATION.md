@@ -94,7 +94,7 @@ Normal warm VS Code startup must **not** reinstall/materialize APM simply becaus
 
 ## 6. Kiro ACP validation
 
-Kiro is a special case because ADR 0009 chooses ACP as the preferred Code Conductor client/harness boundary.
+Kiro is a special case because ADR 0009 chooses ACP as the preferred Code Conductor client/harness boundary. The Code Conductor adapter uses the official stable ACP TypeScript SDK over stdio and starts `kiro-cli acp`; it does not restore the older generic `kiro-cli chat --no-interactive` worker path.
 
 First verify the installed CLI exposes ACP:
 
@@ -102,22 +102,39 @@ First verify the installed CLI exposes ACP:
 kiro-cli acp --help
 ```
 
-The #11 ACP client spike must then validate, using the installed Kiro version:
+Before consuming Kiro subscription-backed execution, review the current Kiro subscription/automation policy for the installed/current service terms. Code Conductor requires an explicit acknowledgement on the smoke command so this step is not silently skipped:
+
+```bash
+cc harness-smoke kiro --mode read --ack-kiro-policy
+```
+
+Only after read smoke passes should modify authority be tested in the disposable smoke repository:
+
+```bash
+cc harness-smoke kiro --mode modify --ack-kiro-policy
+```
+
+Important safety behavior:
+
+- trust is stored specifically as `kiro@acp`; old generic Kiro CLI trust cannot authorize ACP;
+- the ACP client advertises no client filesystem or terminal capabilities;
+- ACP permission requests are cancelled by default until a narrower Kiro permission mapping is proven safe on the real workstation;
+- smoke uses a temporary Git repository and checks actual read-only/modify effects rather than trusting the model's statement;
+- a timed-out ACP prompt sends `session/cancel`, tears down the child process, and is not automatically retried;
+- no OAuth token or secret value is copied into Code Conductor state.
+
+The repository CI tests the ACP protocol boundary against a deterministic fake ACP agent. CI does **not** authenticate to Kiro or consume Kiro subscription/API usage. Live release evidence still requires the installed Kiro client to validate:
 
 - ACP initialization/capability exchange;
 - session creation and cancellation;
 - repository working directory handling;
-- tool-call streaming/result capture;
-- Kiro-native MCP lifecycle behavior exposed through ACP;
-- native agent/subagent/session behavior required by the assigned task;
+- assistant/session update streaming and structured result mapping;
+- Kiro-native MCP/agent/subagent/session behavior required by the assigned task;
 - read-only/plan authority behavior;
-- isolated modify behavior in a disposable worktree;
-- structured Code Conductor result/evidence mapping;
+- isolated modify behavior in the disposable worktree;
 - current subscription/policy compliance.
 
-Until those checks pass, Kiro remains available for interactive/manual use but unattended Code Conductor execution stays fail-closed.
-
-Do not treat the older generic `cc harness-smoke kiro` result as sufficient release evidence after ADR 0009 unless that command has been updated to exercise the approved ACP surface.
+If either smoke fails, do not mark Kiro trusted manually. Keep unattended Kiro execution fail-closed and use the official interactive/native Kiro surface until the failure is understood.
 
 ## 7. Claude and Codex surface validation
 
