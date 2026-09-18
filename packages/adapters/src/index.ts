@@ -1,6 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { AgentAssignment, TaskEnvelope } from '@code-conductor/schemas';
 
+export type HarnessExecutionSurface = 'cli' | 'acp' | 'platform' | 'manual' | 'ide' | 'local' | 'mcp_api';
+
 export interface HarnessExecutionRequest {
   task: TaskEnvelope;
   assignment: AgentAssignment;
@@ -11,6 +13,7 @@ export interface HarnessExecutionRequest {
 
 export interface HarnessExecutionOutcome {
   harness: string;
+  surface: HarnessExecutionSurface;
   command: string;
   args: string[];
   exitCode: number | null;
@@ -25,6 +28,7 @@ export interface HarnessExecutionOutcome {
 export interface HarnessAdapter {
   id: string;
   provider: string;
+  executionSurface: HarnessExecutionSurface;
   command: string | null;
   available(): boolean;
   version(): string | undefined;
@@ -50,16 +54,13 @@ function argsFor(id: string, request: HarnessExecutionRequest): string[] {
       return writeAllowed
         ? ['-p', '--output-format', 'json', '--permission-mode', 'acceptEdits', '--max-turns', '40', request.prompt]
         : ['-p', '--output-format', 'json', '--permission-mode', 'plan', '--max-turns', '20', request.prompt];
-    case 'kiro': {
-      const trusted = writeAllowed ? 'read,grep,write,shell' : 'read,grep';
-      return ['chat', '--no-interactive', '--output-format', 'stream-json', `--trust-tools=${trusted}`, request.prompt];
-    }
     default:
       return [request.prompt];
   }
 }
 
 class SubprocessAdapter implements HarnessAdapter {
+  readonly executionSurface: HarnessExecutionSurface = 'cli';
   constructor(public readonly id: string, public readonly provider: string, public readonly command: string) {}
   available(): boolean { return commandExists(this.command); }
   version(): string | undefined { return this.available() ? commandVersion(this.command) : undefined; }
@@ -79,15 +80,32 @@ class SubprocessAdapter implements HarnessAdapter {
       const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, request.timeoutMs);
       child.on('close', (exitCode, signal) => {
         clearTimeout(timer);
-        resolve({ harness: this.id, command: this.command, args, exitCode, signal, stdout, stderr, startedAt, finishedAt: new Date().toISOString(), timedOut });
+        resolve({ harness: this.id, surface: this.executionSurface, command: this.command, args, exitCode, signal, stdout, stderr, startedAt, finishedAt: new Date().toISOString(), timedOut });
       });
     });
   }
 }
 
+class PendingKiroAcpAdapter implements HarnessAdapter {
+  readonly id = 'kiro';
+  readonly provider = 'aws';
+  readonly executionSurface: HarnessExecutionSurface = 'acp';
+  readonly command = 'kiro-cli';
+  available(): boolean { return commandExists(this.command); }
+  version(): string | undefined { return this.available() ? commandVersion(this.command) : undefined; }
+  async execute(_request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome> {
+    throw new Error('Kiro unattended execution is fail-closed until the Code Conductor ACP client path and current Kiro subscription/read/modify authority boundary pass issue #11 workstation validation.');
+  }
+}
+
 class UnsupportedAdapter implements HarnessAdapter {
   command = null;
-  constructor(public readonly id: string, public readonly provider: string, private readonly reason: string) {}
+  constructor(
+    public readonly id: string,
+    public readonly provider: string,
+    public readonly executionSurface: HarnessExecutionSurface,
+    private readonly reason: string,
+  ) {}
   available(): boolean { return false; }
   version(): string | undefined { return undefined; }
   async execute(_request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome> { throw new Error(this.reason); }
@@ -97,10 +115,10 @@ export function createBuiltinAdapters(): Map<string, HarnessAdapter> {
   return new Map<string, HarnessAdapter>([
     ['codex', new SubprocessAdapter('codex', 'openai', 'codex')],
     ['claude', new SubprocessAdapter('claude', 'anthropic', 'claude')],
-    ['kiro', new SubprocessAdapter('kiro', 'aws', 'kiro-cli')],
-    ['antigravity', new UnsupportedAdapter('antigravity', 'google', 'Antigravity headless automation is disabled pending upstream permission/sandbox reliability and local validation; use the interactive/native Google lane.')],
-    ['copilot-github', new UnsupportedAdapter('copilot-github', 'github', 'GitHub Copilot Gatekeeper is a GitHub platform integration, not a generic subprocess worker.')],
-    ['perplexity', new UnsupportedAdapter('perplexity', 'perplexity', 'Perplexity Pro subscription mode is human-in-the-loop; automated official MCP/API mode is separately billed and disabled by default.')],
-    ['internal-validator', new UnsupportedAdapter('internal-validator', 'code-conductor', 'Internal validation is executed by the deterministic gate runner.')],
+    ['kiro', new PendingKiroAcpAdapter()],
+    ['antigravity', new UnsupportedAdapter('antigravity', 'google', 'ide', 'Antigravity unattended automation is disabled pending current permission/sandbox revalidation; use the interactive/native Google lane.')],
+    ['copilot-github', new UnsupportedAdapter('copilot-github', 'github', 'platform', 'GitHub Copilot Gatekeeper is a GitHub platform integration, not a generic subprocess worker.')],
+    ['perplexity', new UnsupportedAdapter('perplexity', 'perplexity', 'manual', 'Perplexity Pro subscription mode is human-in-the-loop; automated official MCP/API mode is separately billed and disabled by default.')],
+    ['internal-validator', new UnsupportedAdapter('internal-validator', 'code-conductor', 'local', 'Internal validation is executed by the deterministic gate runner.')],
   ]);
 }

@@ -16,6 +16,7 @@ import { ContextOptimizer } from '@code-conductor/context-optimizer';
 const VERSION = '0.1.0';
 function hasCommand(command: string): boolean { const probe = process.platform === 'win32' ? 'where' : 'which'; return spawnSync(probe, [command], { stdio: 'ignore' }).status === 0; }
 function getOption(args: string[], name: string): string | undefined { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : undefined; }
+function listOption(args: string[], name: string): string[] { return getOption(args, name)?.split(',').map((value) => value.trim()).filter(Boolean) ?? []; }
 
 function printValidation(root: string): number {
   const report = validateRepositoryConfig(root);
@@ -24,17 +25,53 @@ function printValidation(root: string): number {
   return report.ok ? 0 : 1;
 }
 
+function vscodeExtensions(): Set<string> {
+  if (!hasCommand('code')) return new Set();
+  const result = spawnSync('code', ['--list-extensions'], { encoding: 'utf8', shell: false, timeout: 15000 });
+  if (result.status !== 0) return new Set();
+  return new Set(result.stdout.split(/\r?\n/).map((value) => value.trim().toLowerCase()).filter(Boolean));
+}
+
 function doctor(root: string): number {
-  const clients = [['git', ['git']], ['github', ['gh']], ['apm', ['apm']], ['claude', ['claude']], ['codex', ['codex']], ['kiro', ['kiro-cli']], ['antigravity', ['agy']]] as const;
+  const requiredClients = [['git', ['git']], ['github', ['gh']], ['apm', ['apm']]] as const;
+  const optionalTools = [['terraform', ['terraform']], ['ansible', ['ansible']], ['powershell', ['pwsh']], ['azure-cli', ['az']], ['aws-cli', ['aws']], ['gcloud', ['gcloud']], ['kubectl', ['kubectl']], ['helm', ['helm']]] as const;
   const workstation = new WorkstationStore();
   const state = workstation.load();
+  const adapters = createBuiltinAdapters();
+  const extensions = vscodeExtensions();
   console.log(`Code Conductor doctor ${VERSION}`);
   let missingRequired = false;
-  for (const [name, candidates] of clients) {
-    const found = candidates.some(hasCommand); console.log(`${found ? 'OK' : 'MISSING'} ${name} (${candidates.join('|')})`);
-    if (!found && ['git', 'github', 'apm'].includes(name)) missingRequired = true;
+
+  for (const [name, candidates] of requiredClients) {
+    const found = candidates.some(hasCommand);
+    console.log(`${found ? 'OK' : 'MISSING'} required ${name} (${candidates.join('|')})`);
+    if (!found) missingRequired = true;
   }
-  for (const [id, record] of Object.entries(state.harnesses)) console.log(`TRUST ${id}: read=${Boolean(record.readValidatedAt || record.modifyValidatedAt)} modify=${Boolean(record.modifyValidatedAt)} version=${record.clientVersion ?? 'unknown'}`);
+
+  for (const [id, adapter] of adapters) {
+    if (id === 'internal-validator') continue;
+    console.log(`${adapter.available() ? 'OK' : 'INFO'} harness ${id}: surface=${adapter.executionSurface} command=${adapter.command ?? 'platform/manual'} version=${adapter.version() ?? 'unknown/not-applicable'}`);
+  }
+
+  const knownExtensions = [
+    ['claude', 'anthropic.claude-code'],
+    ['codex', 'openai.chatgpt'],
+    ['github-copilot', 'github.copilot'],
+    ['github-copilot-chat', 'github.copilot-chat'],
+    ['github-pr', 'github.vscode-pull-request-github'],
+  ] as const;
+  if (hasCommand('code')) {
+    for (const [name, id] of knownExtensions) console.log(`${extensions.has(id) ? 'OK' : 'INFO'} vscode-extension ${name}: ${id}`);
+  } else {
+    console.log('INFO vscode-extension inventory unavailable: `code` CLI not found on PATH.');
+  }
+
+  for (const [name, candidates] of optionalTools) {
+    const found = candidates.some(hasCommand);
+    console.log(`${found ? 'OK' : 'INFO'} tool ${name}: ${found ? candidates.find(hasCommand) : 'not found (optional unless repository profile requires it)'}`);
+  }
+
+  for (const [key, record] of Object.entries(state.harnesses)) console.log(`TRUST ${key}: read=${Boolean(record.readValidatedAt || record.modifyValidatedAt)} modify=${Boolean(record.modifyValidatedAt)} version=${record.clientVersion ?? 'unknown'}`);
   for (const variable of ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'PERPLEXITY_API_KEY']) if (process.env[variable]) console.log(`WARN billing.api_credential_detected: ${variable} is set; subscription-first policy may be bypassed. Value is intentionally not displayed.`);
   if (hasCommand('gh')) console.log(`${githubAuthStatus(root).ok ? 'OK' : 'WARN'} github-auth`);
   if (hasCommand('apm')) { console.log(`${apmTargets(root).ok ? 'OK' : 'WARN'} apm-targets`); console.log(`${apmLockPresent(root) ? 'OK' : 'WARN'} apm-lock`); }
@@ -51,39 +88,45 @@ function plan(args: string[]): number {
   const root = resolve(getOption(args, '--repo') ?? '.'); const objective = getOption(args, '--objective'); const risk = (getOption(args, '--risk') ?? 'R1') as RiskClass;
   if (!objective) { console.error('ERROR plan.objective_required: --objective is required.'); return 2; }
   if (!['R0', 'R1', 'R2', 'R3', 'R4'].includes(risk)) { console.error(`ERROR plan.invalid_risk: ${risk}`); return 2; }
-  console.log(JSON.stringify(planTask(root, createTask(objective, risk, root), { availableHarnesses: availableHarnesses() }), null, 2)); return 0;
+  const task = createTask(objective, risk, root, listOption(args, '--specializations'));
+  console.log(JSON.stringify(planTask(root, task, { availableHarnesses: availableHarnesses() }), null, 2)); return 0;
 }
 
 async function run(args: string[]): Promise<number> {
   const root = resolve(getOption(args, '--repo') ?? '.'); const objective = getOption(args, '--objective'); const risk = (getOption(args, '--risk') ?? 'R1') as RiskClass;
   if (!objective) { console.error('ERROR run.objective_required: --objective is required.'); return 2; }
   const execute = args.includes('--execute'); const workstation = new WorkstationStore();
-  const outcome = await executeTask(root, createTask(objective, risk, root), { execute, keepWorktrees: !args.includes('--cleanup-worktrees'), isHarnessTrusted: (harness, mode) => workstation.isTrusted(harness, mode) });
-  console.log(JSON.stringify({ runId: outcome.plan.runId, execute, manifestPath: outcome.manifestPath, mergeDecision: outcome.manifest.mergeDecision, assignments: outcome.plan.assignments.map((a) => ({ role: a.role, harness: a.harness, stance: a.stance, authority: a.authority })), pendingExternal: outcome.pendingExternal.map((a) => a.id), worktrees: outcome.worktrees.map((w) => ({ path: w.path, branch: w.branch, baseSha: w.baseSha })) }, null, 2));
+  const task = createTask(objective, risk, root, listOption(args, '--specializations'));
+  const outcome = await executeTask(root, task, { execute, keepWorktrees: !args.includes('--cleanup-worktrees'), isHarnessTrusted: (harness, mode, surface) => workstation.isTrusted(harness, mode, surface) });
+  console.log(JSON.stringify({ runId: outcome.plan.runId, execute, manifestPath: outcome.manifestPath, mergeDecision: outcome.manifest.mergeDecision, assignments: outcome.plan.assignments.map((a) => ({ role: a.role, harness: a.harness, surface: a.surface, stance: a.stance, authority: a.authority })), pendingExternal: outcome.pendingExternal.map((a) => a.id), worktrees: outcome.worktrees.map((w) => ({ path: w.path, branch: w.branch, baseSha: w.baseSha })) }, null, 2));
   return outcome.manifest.mergeDecision && outcome.manifest.mergeDecision.decision !== 'ready' ? 1 : 0;
 }
 
 async function harnessSmoke(args: string[]): Promise<number> {
   const harness = args[0]; const mode = (getOption(args, '--mode') ?? 'read') as HarnessTrustMode;
   if (!harness || !['read', 'modify'].includes(mode)) { console.error('Usage: cc harness-smoke <codex|claude|kiro> --mode <read|modify>'); return 2; }
-  if (harness === 'antigravity') { console.error('BLOCKED: Antigravity headless smoke is disabled pending upstream permission/sandbox reliability.'); return 1; }
+  if (harness === 'antigravity') { console.error('BLOCKED: Antigravity unattended smoke is disabled pending current permission/sandbox revalidation.'); return 1; }
   const adapter = createBuiltinAdapters().get(harness);
   if (!adapter?.available()) { console.error(`ERROR: harness ${harness} is not available.`); return 1; }
+  if (adapter.executionSurface === 'acp' && harness === 'kiro') {
+    console.error('BLOCKED: Kiro now requires the ACP-specific smoke path tracked in issue #11. Generic `kiro-cli chat --no-interactive` smoke cannot authorize the ACP surface.');
+    return 1;
+  }
   const root = mkdtempSync(join(tmpdir(), 'cc-smoke-')); const workspace = join(root, 'workspace');
   try {
     spawnSync('git', ['init', workspace], { stdio: 'ignore' });
     writeFileSync(join(workspace, 'AGENTS.md'), '# Smoke test\nStay within this temporary workspace.\n');
     writeFileSync(join(workspace, 'INPUT.txt'), 'READ_OK\n');
     spawnSync('git', ['-C', workspace, 'add', '.'], { stdio: 'ignore' }); spawnSync('git', ['-C', workspace, '-c', 'user.name=Code Conductor', '-c', 'user.email=smoke@local', 'commit', '-m', 'baseline'], { stdio: 'ignore' });
-    const assignment: AgentAssignment = { id: 'SMOKE-A', taskId: 'SMOKE-T', agentId: `smoke-${harness}`, role: mode === 'modify' ? 'builder' : 'reviewer', stance: 'neutral', provider: adapter.provider, harness, billingChannel: 'subscription', authority: mode === 'modify' ? ['modify_worktree'] : ['review'], dependsOn: [] };
+    const assignment: AgentAssignment = { id: 'SMOKE-A', taskId: 'SMOKE-T', agentId: `smoke-${harness}`, role: mode === 'modify' ? 'builder' : 'reviewer', stance: 'neutral', provider: adapter.provider, harness, surface: adapter.executionSurface, billingChannel: 'subscription', authority: mode === 'modify' ? ['modify_worktree'] : ['review'], dependsOn: [] };
     const task: TaskEnvelope = { id: 'SMOKE-T', objective: mode === 'modify' ? 'Read INPUT.txt, create OUTPUT.txt containing exactly WRITE_OK followed by one newline, and do not touch anything outside this workspace.' : 'Read INPUT.txt and report its exact content without changing any file.', repository: workspace, acceptanceCriteria: [], risk: 'R0', constraints: ['temporary isolated smoke test'], createdAt: new Date().toISOString() };
     const outcome = await adapter.execute({ task, assignment, cwd: workspace, timeoutMs: 180000, prompt: `${task.objective}\nFinal line: CC_RESULT_JSON:{"status":"completed","changes":[],"tests":[],"evidence":[],"findings":[],"risks":[],"blockers":[],"recommendation":"ready"}` });
     const parsed = parseAgentResult(assignment, outcome); const changed = spawnSync('git', ['-C', workspace, 'status', '--porcelain=v1'], { encoding: 'utf8' }).stdout.trim().split(/\r?\n/).filter(Boolean);
     const writeOk = mode === 'modify' ? (() => { try { return readFileSync(join(workspace, 'OUTPUT.txt'), 'utf8') === 'WRITE_OK\n'; } catch { return false; } })() : changed.length === 0;
     const ok = outcome.exitCode === 0 && parsed.status === 'completed' && writeOk;
-    if (!ok) { console.error(`SMOKE FAIL ${harness} ${mode}: exit=${String(outcome.exitCode)} changed=${changed.join(',') || 'none'}`); return 1; }
-    new WorkstationStore().record(harness, mode, adapter.version(), `Temporary ${mode} smoke passed without storing credentials.`);
-    console.log(`SMOKE PASS ${harness} ${mode}`); return 0;
+    if (!ok) { console.error(`SMOKE FAIL ${harness} ${adapter.executionSurface} ${mode}: exit=${String(outcome.exitCode)} changed=${changed.join(',') || 'none'}`); return 1; }
+    new WorkstationStore().record(harness, mode, adapter.version(), `Temporary ${mode} smoke passed on ${adapter.executionSurface} without storing credentials.`, adapter.executionSurface);
+    console.log(`SMOKE PASS ${harness} ${adapter.executionSurface} ${mode}`); return 0;
   } finally { rmSync(root, { recursive: true, force: true }); }
 }
 
@@ -106,7 +149,7 @@ function compressFile(args: string[]): number {
     return 1;
   }
 }
-function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nrun defaults to dry-run; pass --execute only after harness-smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.\n\ncompress <file> defaults to lossless preparation scoped to --root <dir> (default: current directory). Use --aggressive only when comment/whitespace removal is explicitly acceptable.'); }
+function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nplan/run accept optional --specializations <comma,separated,hints>; otherwise routing uses the small inspectable objective-signal map in config/capabilities.yaml.\n\nrun defaults to dry-run; pass --execute only after surface-specific harness smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.\n\ncompress <file> defaults to lossless preparation scoped to --root <dir> (default: current directory). Use --aggressive only when comment/whitespace removal is explicitly acceptable.'); }
 
 const [command = 'help', ...args] = process.argv.slice(2); let exitCode = 0;
 switch (command) {

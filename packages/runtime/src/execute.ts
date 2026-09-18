@@ -16,15 +16,17 @@ export interface ExecuteOptions {
   gateExecutor?: CommandExecutor;
   timeoutMs?: number;
   keepWorktrees?: boolean;
-  isHarnessTrusted?: (harness: string, mode: 'read' | 'modify') => boolean;
+  isHarnessTrusted?: (harness: string, mode: 'read' | 'modify', surface?: string) => boolean;
 }
 export interface ExecuteOutcome { plan: TaskPlan; manifest: RunManifest; manifestPath: string; pendingExternal: AgentAssignment[]; worktrees: WorktreeHandle[] }
 
 function buildPrompt(task: TaskEnvelope, assignment: AgentAssignment): string {
   return [
     `Code Conductor task ${task.id}.`, `Objective: ${task.objective}`, `Role: ${assignment.role}. Stance: ${assignment.stance}.`,
+    `Harness: ${assignment.harness}. Surface: ${assignment.surface ?? 'unspecified'}.`,
     `Authority: ${assignment.authority.join(', ') || 'observe'}.`,
     `Acceptance criteria: ${task.acceptanceCriteria.length ? task.acceptanceCriteria.join(' | ') : 'Use repository task definition and policy.'}`,
+    `Specializations: ${task.specializations?.length ? task.specializations.join(', ') : 'Use approved routing/configuration.'}`,
     'Read AGENTS.md and applicable repository instructions before acting.',
     'Do not reveal private chain-of-thought. Return conclusions, evidence, changes, tests, findings, risks, blockers, and recommendation only.',
     'Your FINAL line MUST be CC_RESULT_JSON:<single-line JSON object> matching AgentResult fields that you control: status, changes, tests, evidence, findings, risks, blockers, recommendation.',
@@ -75,7 +77,7 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
         const failed = blockingGateFailure(gateExecutions);
         manifest.results.push({
           taskId: task.id, assignmentId: assignment.id, agentId: assignment.agentId, role: assignment.role, stance: assignment.stance,
-          provider: assignment.provider, harness: assignment.harness, billingChannel: 'local', status: failed ? 'failed' : 'completed', changes: [],
+          provider: assignment.provider, harness: assignment.harness, ...(assignment.surface ? { surface: assignment.surface } : {}), billingChannel: 'local', status: failed ? 'failed' : 'completed', changes: [],
           tests: gateExecutions.map((item) => item.result), evidence: gateExecutions.map((item) => item.evidence), findings: [], risks: [],
           blockers: failed ? ['Blocking deterministic gate failed.'] : [], recommendation: failed ? 'changes_required' : 'continue',
         });
@@ -86,13 +88,19 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
 
       const adapter = adapters.get(assignment.harness);
       if (!adapter || !adapter.available()) {
-        const result = externalAwaitingResult(assignment, `Harness ${assignment.harness} requires manual/platform integration or is unavailable on this workstation.`);
+        const result = externalAwaitingResult(assignment, `Harness ${assignment.harness} surface ${assignment.surface ?? 'unknown'} requires manual/platform integration or is unavailable on this workstation.`);
         manifest.results.push(result); pendingExternal.push(assignment); manifestPath = save(); continue;
       }
 
+      if (assignment.surface && adapter.executionSurface !== assignment.surface) {
+        manifest.results.push({ ...externalAwaitingResult(assignment, `Harness ${assignment.harness} is configured for ${assignment.surface}, but the installed adapter exposes ${adapter.executionSurface}.`), status: 'blocked', recommendation: 'changes_required' });
+        manifestPath = save();
+        continue;
+      }
+
       const trustMode = assignment.authority.includes('modify_worktree') ? 'modify' : 'read';
-      if (!options.isHarnessTrusted?.(assignment.harness, trustMode)) {
-        manifest.results.push({ ...externalAwaitingResult(assignment, `Harness ${assignment.harness} has not passed Code Conductor workstation ${trustMode} smoke validation.`), status: 'blocked', recommendation: 'changes_required' });
+      if (!options.isHarnessTrusted?.(assignment.harness, trustMode, assignment.surface ?? adapter.executionSurface)) {
+        manifest.results.push({ ...externalAwaitingResult(assignment, `Harness ${assignment.harness} surface ${assignment.surface ?? adapter.executionSurface} has not passed Code Conductor workstation ${trustMode} smoke validation.`), status: 'blocked', recommendation: 'changes_required' });
         manifestPath = save(); continue;
       }
 
@@ -113,7 +121,7 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
           if (parsed.status !== 'failed' || attempt === 1) result = parsed;
         } catch (error) { lastError = error; }
       }
-      result ??= { taskId: task.id, assignmentId: assignment.id, agentId: assignment.agentId, role: assignment.role, stance: assignment.stance, provider: assignment.provider, harness: assignment.harness, billingChannel: assignment.billingChannel, status: 'failed', changes: [], tests: [], evidence: [], findings: [], risks: [], blockers: [lastError instanceof Error ? lastError.message : 'Harness execution failed after bounded retry.'], recommendation: 'changes_required' };
+      result ??= { taskId: task.id, assignmentId: assignment.id, agentId: assignment.agentId, role: assignment.role, stance: assignment.stance, provider: assignment.provider, harness: assignment.harness, ...(assignment.surface ? { surface: assignment.surface } : {}), billingChannel: assignment.billingChannel, status: 'failed', changes: [], tests: [], evidence: [], findings: [], risks: [], blockers: [lastError instanceof Error ? lastError.message : 'Harness execution failed after bounded retry.'], recommendation: 'changes_required' };
 
       if (assignmentWorktree && result.status === 'completed') {
         try {

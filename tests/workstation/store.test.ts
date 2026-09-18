@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -9,22 +9,39 @@ function mode(path: string): number {
 }
 
 describe('workstation trust store', () => {
-  it('persists trust state with owner-only permissions on POSIX systems', () => {
+  it('persists surface-specific trust with owner-only permissions on POSIX systems', () => {
     const root = mkdtempSync(join(tmpdir(), 'cc-workstation-test-'));
     const stateDir = join(root, 'state');
     const statePath = join(stateDir, 'workstation.json');
     try {
       const store = new WorkstationStore(statePath);
-      store.record('codex', 'modify', 'test-version', 'isolated smoke passed');
+      store.record('codex', 'modify', 'test-version', 'isolated smoke passed', 'cli');
 
-      expect(store.isTrusted('codex', 'read')).toBe(true);
-      expect(store.isTrusted('codex', 'modify')).toBe(true);
-      expect(store.load().harnesses.codex?.clientVersion).toBe('test-version');
+      expect(store.isTrusted('codex', 'read', 'cli')).toBe(true);
+      expect(store.isTrusted('codex', 'modify', 'cli')).toBe(true);
+      expect(store.isTrusted('codex', 'read', 'acp')).toBe(false);
+      expect(store.load().harnesses['codex@cli']?.clientVersion).toBe('test-version');
 
       if (process.platform !== 'win32') {
         expect(mode(stateDir)).toBe(0o700);
         expect(mode(statePath)).toBe(0o600);
       }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('migrates legacy v1 trust to CLI only and never authorizes a new ACP surface', () => {
+    const root = mkdtempSync(join(tmpdir(), 'cc-workstation-migrate-'));
+    const statePath = join(root, 'workstation.json');
+    try {
+      writeFileSync(statePath, `${JSON.stringify({ version: 1, harnesses: { kiro: { readValidatedAt: '2026-09-01T00:00:00.000Z', clientVersion: 'legacy' } } })}\n`);
+      const store = new WorkstationStore(statePath);
+
+      expect(store.isTrusted('kiro', 'read', 'cli')).toBe(true);
+      expect(store.isTrusted('kiro', 'read', 'acp')).toBe(false);
+      expect(store.load().version).toBe(2);
+      expect(store.load().harnesses['kiro@cli']?.clientVersion).toBe('legacy');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -12,7 +12,8 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 }, "objective": { "type": "string", "minLength": 1 }, "repository": { "type": "string" },
         "acceptanceCriteria": { "type": "array", "items": { "type": "string" } }, "risk": { "$ref": "#/$defs/RiskClass" },
-        "constraints": { "type": "array", "items": { "type": "string" } }, "createdAt": { "type": "string", "format": "date-time" }
+        "constraints": { "type": "array", "items": { "type": "string" } }, "specializations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "createdAt": { "type": "string", "format": "date-time" }
       }
     },
     "AgentAssignment": {
@@ -21,7 +22,7 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 }, "taskId": { "type": "string", "minLength": 1 }, "agentId": { "type": "string", "minLength": 1 },
         "role": { "type": "string", "minLength": 1 }, "stance": { "$ref": "#/$defs/Stance" }, "provider": { "type": "string", "minLength": 1 },
-        "harness": { "type": "string", "minLength": 1 }, "billingChannel": { "$ref": "#/$defs/BillingChannel" },
+        "harness": { "type": "string", "minLength": 1 }, "surface": { "type": "string", "minLength": 1 }, "billingChannel": { "$ref": "#/$defs/BillingChannel" },
         "authority": { "type": "array", "items": { "type": "string" } }, "dependsOn": { "type": "array", "items": { "type": "string" } }
       }
     },
@@ -41,7 +42,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["taskId", "assignmentId", "agentId", "role", "stance", "provider", "harness", "billingChannel", "status", "changes", "tests", "evidence", "findings", "risks", "blockers", "recommendation"],
       "properties": {
-        "taskId": { "type": "string" }, "assignmentId": { "type": "string" }, "agentId": { "type": "string" }, "role": { "type": "string" }, "stance": { "$ref": "#/$defs/Stance" }, "provider": { "type": "string" }, "harness": { "type": "string" }, "billingChannel": { "$ref": "#/$defs/BillingChannel" },
+        "taskId": { "type": "string" }, "assignmentId": { "type": "string" }, "agentId": { "type": "string" }, "role": { "type": "string" }, "stance": { "$ref": "#/$defs/Stance" }, "provider": { "type": "string" }, "harness": { "type": "string" }, "surface": { "type": "string", "minLength": 1 }, "billingChannel": { "$ref": "#/$defs/BillingChannel" },
         "status": { "type": "string", "enum": ["completed", "awaiting_external", "blocked", "failed", "cancelled"] }, "changes": { "type": "array", "items": { "type": "string" } },
         "tests": { "type": "array", "items": { "$ref": "#/$defs/GateResult" } }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/Evidence" } }, "findings": { "type": "array", "items": { "$ref": "#/$defs/Finding" } },
         "risks": { "type": "array", "items": { "type": "string" } }, "blockers": { "type": "array", "items": { "type": "string" } },

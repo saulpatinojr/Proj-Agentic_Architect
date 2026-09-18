@@ -23,8 +23,25 @@ interface RoleDefinition {
 interface RolesDocument { roles: Record<string, RoleDefinition> }
 interface RiskDefinition { required_roles?: string[]; inherits?: RiskClass }
 interface RiskDocument { risk_classes: Record<RiskClass, RiskDefinition> }
-interface HarnessDefinition { provider: string; subscription?: string; automation?: string }
-interface CapabilityDocument { harnesses: Record<string, HarnessDefinition> }
+interface SurfaceDefinition {
+  kind?: string;
+  machine_execution?: boolean;
+  requires_local_client?: boolean;
+  separately_billed_api?: boolean;
+  enabled_by_default?: boolean;
+}
+interface HarnessDefinition {
+  provider: string;
+  subscription?: string;
+  preferred_execution_surface?: string;
+  surfaces?: Record<string, SurfaceDefinition>;
+  primary_specializations?: string[];
+}
+interface CapabilityDocument {
+  version?: number;
+  routing?: { objective_signals?: Record<string, string[]> };
+  harnesses: Record<string, HarnessDefinition>;
+}
 
 const riskRank: Record<RiskClass, number> = { R0: 0, R1: 1, R2: 2, R3: 3, R4: 4 };
 
@@ -49,18 +66,43 @@ function authorityFor(role: RoleDefinition): string[] {
   if (role.may_merge) authority.push('merge');
   return authority;
 }
+function preferredSurface(capability: HarnessDefinition): string {
+  if (capability.preferred_execution_surface) return capability.preferred_execution_surface;
+  const machine = Object.entries(capability.surfaces ?? {}).find(([, surface]) => surface.machine_execution && surface.enabled_by_default !== false);
+  return machine?.[0] ?? Object.keys(capability.surfaces ?? {})[0] ?? 'unknown';
+}
 function requiresWorkstationClient(capability: HarnessDefinition): boolean {
-  const automation = capability.automation ?? '';
-  return automation.startsWith('cli_') || automation.startsWith('interactive_');
+  const surface = capability.surfaces?.[preferredSurface(capability)];
+  return Boolean(surface?.requires_local_client);
 }
 function billingChannelFor(capability: HarnessDefinition): BillingChannel {
-  const automation = capability.automation ?? '';
-  if (automation === 'local') return 'local';
-  if (automation.startsWith('manual_')) return 'manual';
+  const surfaceName = preferredSurface(capability);
+  const surface = capability.surfaces?.[surfaceName];
+  if (surfaceName === 'local' || surface?.kind === 'local') return 'local';
+  if (surfaceName === 'manual' || surface?.kind === 'manual') return 'manual';
+  if (surface?.separately_billed_api || surface?.kind === 'mcp_api' || surface?.kind === 'api') return 'api';
   return 'subscription';
 }
 function riskAtLeast(actual: RiskClass, threshold: RiskClass): boolean {
   return riskRank[actual] >= riskRank[threshold];
+}
+function inferredSpecializations(task: TaskEnvelope, capabilities: CapabilityDocument): Set<string> {
+  if (task.specializations?.length) return new Set(task.specializations);
+  const objective = task.objective.toLowerCase();
+  const inferred = new Set<string>();
+  for (const [specialization, signals] of Object.entries(capabilities.routing?.objective_signals ?? {})) {
+    if (signals.some((signal) => objective.includes(signal.toLowerCase()))) inferred.add(specialization);
+  }
+  return inferred;
+}
+function specializationScore(capability: HarnessDefinition, requested: Set<string>): number {
+  return (capability.primary_specializations ?? []).reduce((score, specialization) => score + (requested.has(specialization) ? 1 : 0), 0);
+}
+function orderBySpecialization(candidates: string[], capabilities: CapabilityDocument, requested: Set<string>): string[] {
+  return candidates
+    .map((harness, index) => ({ harness, index, score: specializationScore(capabilities.harnesses[harness]!, requested) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((entry) => entry.harness);
 }
 
 export interface PlanOptions { availableHarnesses?: Set<string> }
@@ -71,6 +113,7 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
   const risks = load<RiskDocument>(root, 'config/risk.yaml');
   const capabilities = load<CapabilityDocument>(root, 'config/capabilities.yaml');
   const requiredRoles = inheritedRoles(risks, task.risk);
+  const requestedSpecializations = inferredSpecializations(task, capabilities);
   const available = options.availableHarnesses;
   const assignments: AgentAssignment[] = [];
   let builderProvider: string | undefined;
@@ -92,6 +135,7 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
     if (builderProvider && independenceThreshold && riskAtLeast(task.risk, independenceThreshold)) {
       candidates = candidates.filter((harness) => capabilities.harnesses[harness]?.provider !== builderProvider);
     }
+    candidates = orderBySpecialization(candidates, capabilities, requestedSpecializations);
     const harness = candidates[0];
     if (!harness) throw new Error(`No eligible harness is available for role ${roleName}.`);
     const capability = capabilities.harnesses[harness];
@@ -100,8 +144,17 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
     if (roleName !== 'builder' && builderAssignmentId && !['researcher', 'spec_lead'].includes(roleName)) dependsOn.push(builderAssignmentId);
     if (roleName === 'builder') for (const assignment of assignments.filter((item) => ['researcher', 'spec_lead'].includes(item.role))) dependsOn.push(assignment.id);
     const assignment: AgentAssignment = {
-      id: `A-${assignments.length + 1}-${randomUUID().slice(0, 8)}`, taskId: task.id, agentId: `${roleName}-${harness}`, role: roleName, stance: role.stance,
-      provider: capability.provider, harness, billingChannel: billingChannelFor(capability), authority: authorityFor(role), dependsOn,
+      id: `A-${assignments.length + 1}-${randomUUID().slice(0, 8)}`,
+      taskId: task.id,
+      agentId: `${roleName}-${harness}`,
+      role: roleName,
+      stance: role.stance,
+      provider: capability.provider,
+      harness,
+      surface: preferredSurface(capability),
+      billingChannel: billingChannelFor(capability),
+      authority: authorityFor(role),
+      dependsOn,
     };
     assignments.push(assignment);
     if (roleName === 'builder') { builderProvider = capability.provider; builderAssignmentId = assignment.id; }
@@ -109,6 +162,15 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
   return { runId: `CC-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 8)}`, task, assignments };
 }
 
-export function createTask(objective: string, risk: RiskClass, repository?: string): TaskEnvelope {
-  return { id: `T-${randomUUID()}`, objective, ...(repository ? { repository } : {}), acceptanceCriteria: [], risk, constraints: [], createdAt: new Date().toISOString() };
+export function createTask(objective: string, risk: RiskClass, repository?: string, specializations: string[] = []): TaskEnvelope {
+  return {
+    id: `T-${randomUUID()}`,
+    objective,
+    ...(repository ? { repository } : {}),
+    acceptanceCriteria: [],
+    risk,
+    constraints: [],
+    ...(specializations.length ? { specializations: [...new Set(specializations)] } : {}),
+    createdAt: new Date().toISOString(),
+  };
 }
