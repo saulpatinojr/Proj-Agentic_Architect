@@ -22,6 +22,26 @@ class FakeAdapter implements HarnessAdapter {
   }
 }
 
+class TimeoutAdapter extends FakeAdapter {
+  calls = 0;
+  override async execute(_request: HarnessExecutionRequest): Promise<HarnessExecutionOutcome> {
+    this.calls += 1;
+    return {
+      harness: this.id,
+      surface: this.executionSurface,
+      command: this.command ?? 'fake',
+      args: [],
+      exitCode: null,
+      signal: 'SIGTERM',
+      stdout: '',
+      stderr: 'timed out',
+      startedAt: new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      timedOut: true,
+    };
+  }
+}
+
 class FakeWorktrees {
   root = '/fake';
   create(repositoryRoot: string, taskId: string, agentId: string): WorktreeHandle { return { repositoryRoot, path: repositoryRoot, branch: `cc/${taskId}/${agentId}`, baseRef: 'HEAD', baseSha: 'fake-base', taskId, agentId }; }
@@ -84,6 +104,25 @@ describe('run execution', () => {
       });
       expect(outcome.manifest.results[0]?.status).toBe('blocked');
       expect(outcome.manifest.results[0]?.blockers[0]).toContain('configured for cli');
+    } finally { rmSync(temp, { recursive: true, force: true }); }
+  });
+
+  it('does not automatically retry a timed-out external harness', async () => {
+    const temp = mkdtempSync(join(tmpdir(), 'cc-run-timeout-test-'));
+    const timedOut = new TimeoutAdapter('codex', 'openai');
+    try {
+      const adapters = new Map<string, HarnessAdapter>([['codex', timedOut], ['claude', new FakeAdapter('claude', 'anthropic')]]);
+      const outcome = await executeTask(resolve('.'), createTask('timeout R1 run', 'R1', resolve('.')), {
+        execute: true,
+        adapters,
+        store: new RunStore(temp),
+        worktrees: new FakeWorktrees() as unknown as WorktreeManager,
+        gateExecutor: () => ({ status: 0, stdout: 'ok', stderr: '' }),
+        isHarnessTrusted: () => true,
+      });
+      expect(timedOut.calls).toBe(1);
+      expect(outcome.manifest.results[0]?.status).toBe('failed');
+      expect(outcome.manifest.results[0]?.blockers.join(' ')).toContain('automatic retry was suppressed');
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
 });
