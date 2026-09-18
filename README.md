@@ -5,7 +5,7 @@ Code Conductor is a **VS Code-centered, multi-provider agent engineering system*
 ## Status
 
 **Target:** v0.1 workstation/VS Code release  
-**Current checkpoint:** repository foundation and CI are implemented and green. Before full workstation/R1/R2 dogfood, the approved v0.1 architecture delta is being applied: surface-aware harnesses, Kiro ACP-first integration, explicit provider specialization/routing, thin-client packaging, and lazy startup. The first-party context optimizer remains a conservative context-preparation capability; its MCP transport is experimental until official-SDK/current-protocol validation is complete.
+**Current checkpoint:** the approved v0.1 architecture/product delta is implemented on `main`: surface-aware harnesses and provider specialization/routing, a guarded Kiro ACP path, self-contained thin-client packaging/lazy startup, immutable Agent Catalog intake tooling, and the VSIX packaging foundation. The active critical path is now clean-machine/workstation validation plus real R1/R2 dogfood. The first-party context optimizer remains a conservative context-preparation capability; its MCP transport is experimental until official-SDK/current-protocol validation is complete.
 
 See [`docs/STATUS.md`](docs/STATUS.md) for the maintained checkpoint and GitHub issue **#7** for the durable product roadmap/backlog.
 
@@ -16,7 +16,7 @@ Code Conductor v0.x is intentionally **not another standalone desktop app**.
 - VS Code is the primary graphical cockpit.
 - The Code Conductor extension stays thin and deep-links into native provider/editor/terminal/diff/SCM/PR surfaces.
 - An optional thin `cc` CLI/TUI uses the same versioned core/runtime.
-- Normal customer repositories must not need the Code Conductor source tree or an `npm run build` step once release packaging lands.
+- The packaged extension now bundles the compiled Code Conductor runtime; clean-machine validation and Marketplace publication still must prove customers do not need this source tree or a local `npm run build` step.
 - First run performs explicit local discovery/bootstrap; subsequent starts use cached non-secret state and lazy provider/MCP/APM activation.
 
 ## Architecture at a glance
@@ -58,7 +58,7 @@ Important work can add independent constructive, critical/challenger, neutral va
 
 `.apm/` is the canonical source for reusable agent/skill content. Harness-specific Claude/Codex/Copilot/Kiro/Agent Skills projections are generated/materialized rather than manually maintained as divergent copies.
 
-The user's larger legacy agent/skill library is tracked as a dedicated migration workstream in issue #13. The migration rule is **100% source-lineage coverage**: every original file is preserved/inventoried and receives a canonical destination or explicit duplicate/superseded disposition before retirement. The goal is modular APM packages with lean personas, reusable deep skills/references, and provider overlays only for genuine harness differences.
+The user's larger legacy agent/skill library is tracked as a dedicated migration workstream in issue #13. The immutable inventory/lineage intake mechanism is implemented; the actual corpus review and migration are still pending. The migration rule is **100% source-lineage coverage**: every original file is preserved/inventoried and receives a canonical destination or explicit duplicate/superseded disposition before retirement. The goal is modular APM packages with lean personas, reusable deep skills/references, and provider overlays only for genuine harness differences.
 
 ## Quick start
 
