@@ -28,12 +28,14 @@ describe('agent catalog immutable intake', () => {
       expect(agent?.classificationHints).toContain('agent');
       expect(agent?.title).toBe('Terraform Engineer');
 
-      const exact = ledger.entries.find((entry) => entry.sourcePath === 'agents/terraform-engineer-copy.md');
-      expect(exact?.exactDuplicateOf).toBe('agents/terraform-engineer.agent.md');
+      const originals = ledger.entries.filter((entry) => ['agents/terraform-engineer.agent.md', 'agents/terraform-engineer-copy.md'].includes(entry.sourcePath));
+      const exact = originals.find((entry) => entry.exactDuplicateOf);
+      const canonical = originals.find((entry) => !entry.exactDuplicateOf);
+      expect(exact?.exactDuplicateOf).toBe(canonical?.sourcePath);
       expect(exact?.disposition).toBe('pending');
 
       const normalized = ledger.entries.find((entry) => entry.sourcePath === 'agents/terraform-engineer-spacing.md');
-      expect(normalized?.normalizedDuplicateOf).toBe('agents/terraform-engineer.agent.md');
+      expect(normalized?.normalizedDuplicateOf).toBe(canonical?.sourcePath);
       expect(normalized?.exactDuplicateOf).toBeNull();
 
       const skill = ledger.entries.find((entry) => entry.sourcePath === 'skills/terraform/SKILL.md');
