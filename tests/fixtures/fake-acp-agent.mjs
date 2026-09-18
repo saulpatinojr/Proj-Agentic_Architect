@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { randomUUID } from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
 import * as acp from '@agentclientprotocol/sdk';
 
@@ -30,7 +31,7 @@ const app = acp
     };
   })
   .onRequest(acp.methods.agent.session.new, () => {
-    const sessionId = `fake-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const sessionId = `fake-${randomUUID()}`;
     sessions.add(sessionId);
     return { sessionId };
   })
