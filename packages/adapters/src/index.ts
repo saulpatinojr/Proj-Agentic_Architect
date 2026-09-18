@@ -193,6 +193,7 @@ export class KiroAcpAdapter implements HarnessAdapter {
               timedOut = true;
               try {
                 if (sessionId) {
+                  stderr = appendTail(stderr, `[ACP cancel requested] sessionId=${sessionId}\n`);
                   void ctx.notify(acp.methods.agent.session.cancel, { sessionId }).catch(() => {
                     // Best effort only. Process teardown below is authoritative.
                   });
