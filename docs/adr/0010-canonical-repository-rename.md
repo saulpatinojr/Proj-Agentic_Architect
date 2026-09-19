@@ -54,7 +54,7 @@ The manifest case is the worst of these, and it is wider than three metadata fie
 
 The required order is: maintainer renames the repository, then this PR merges.
 
-For accuracy, one harm this ADR does **not** claim: `docs/BOOTSTRAP.md` step 3 also instructs `git switch bootstrap/code-conductor-v0.1`, a branch that no longer exists on the remote, so a clean-machine bootstrap already fails at that step today regardless of merge order. That is a pre-existing defect recorded as follow-up, not a consequence of this change.
+For accuracy, one harm this ADR does **not** attribute to merge order: `docs/BOOTSTRAP.md` step 3 also instructed `git switch bootstrap/code-conductor-v0.1`, a branch deleted when the foundation PR merged, so a clean-machine bootstrap already failed at that step regardless of this change. That pre-existing defect is corrected in this PR — the `git switch` step is removed, because `git clone` already checks out `main` — but it was never a consequence of the rename.
 
 ### APM and lockfile impact
 

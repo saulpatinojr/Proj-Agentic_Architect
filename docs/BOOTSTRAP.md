@@ -42,10 +42,10 @@ Do not copy consumer OAuth/session tokens into repository configuration.
 ```bash
 git clone https://github.com/saulpatinojr/Proj-Code_Conductor.git
 cd Proj-Code_Conductor
-git switch bootstrap/code-conductor-v0.1
 ```
 
-After the foundation PR merges, use `main` instead.
+`git clone` checks out `main`, which is the default branch and carries the current
+baseline. No additional `git switch` step is required.
 
 ## 4. Read operating law before execution
 
