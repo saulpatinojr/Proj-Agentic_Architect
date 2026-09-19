@@ -40,12 +40,12 @@ Do not copy consumer OAuth/session tokens into repository configuration.
 ## 3. Clone Code Conductor
 
 ```bash
-git clone https://github.com/saulpatinojr/Proj-Agentic_Architect.git
-cd Proj-Agentic_Architect
-git switch bootstrap/code-conductor-v0.1
+git clone https://github.com/saulpatinojr/Proj-Code_Conductor.git
+cd Proj-Code_Conductor
 ```
 
-After the foundation PR merges, use `main` instead.
+`git clone` checks out `main`, which is the default branch and carries the current
+baseline. No additional `git switch` step is required.
 
 ## 4. Read operating law before execution
 
