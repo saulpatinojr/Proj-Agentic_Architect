@@ -96,7 +96,20 @@ export function worktreeChangedFiles(handle: WorktreeHandle): string[] {
   return [...new Set([...committed, ...gitChangedFiles(handle.path)])].sort();
 }
 
+// Agent commits stage everything with `git add --all`, which is only safe inside
+// an isolated linked worktree created by WorktreeManager. A primary working tree
+// (git-dir equal to the common git-dir) holds a person's uncommitted work and
+// must never be committed on their behalf, so refuse it outright (issue #48).
+export function assertLinkedWorktree(handle: WorktreeHandle): void {
+  const [gitDir, commonDir] = git(handle.path, ['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir'])
+    .trim().split(/\r?\n/).map((path) => resolve(path));
+  if (!gitDir || !commonDir || gitDir === commonDir) {
+    throw new Error(`Refusing to commit agent changes in ${handle.path}: it is a repository's primary working tree, not a Code Conductor linked worktree.`);
+  }
+}
+
 export function commitAgentChanges(handle: WorktreeHandle, message: string): AgentCommit | undefined {
+  assertLinkedWorktree(handle);
   const files = worktreeChangedFiles(handle);
   if (!files.length) return undefined;
   assertSafeChangedPaths(files);

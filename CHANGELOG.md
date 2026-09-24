@@ -55,3 +55,4 @@ All notable Code Conductor changes are recorded here. The project follows a pre-
 - Evidence-store path traversal and rename-based sensitive-file detection are covered by regression tests.
 - Added high/critical dependency audit as a CI gate; the current dependency graph reports zero known npm vulnerabilities.
 - Multiple GitHub Copilot Gatekeeper review rounds were exercised and concrete findings were addressed with targeted regression coverage.
+- Agent commits now refuse to run anywhere but a linked worktree: `commitAgentChanges` rejects a repository's primary working tree, which holds a person's uncommitted work. Previously the runtime test suite pointed its worktree double at the repository root, so running `npm test` with uncommitted changes committed them onto the current branch under the Code Conductor identity, bounded only by the sensitive-path denylist. Fixes #48.

@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { WorktreeManager, assertSafeChangedPaths, gitChangedFiles, isSensitiveRepositoryPath, resolveRepositoryRoot, safeGitRefSegment } from '../../packages/git/src/index.js';
+import { WorktreeManager, assertSafeChangedPaths, commitAgentChanges, gitChangedFiles, isSensitiveRepositoryPath, resolveRepositoryRoot, safeGitRefSegment } from '../../packages/git/src/index.js';
 
 describe('git helpers', () => {
   it('can inspect the current repository without mutating it', () => {
@@ -89,6 +89,49 @@ describe('git helpers', () => {
           // Best-effort cleanup for a failed assertion or git operation.
         }
       }
+      rmSync(worktreeRoot, { recursive: true, force: true });
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to commit agent changes in a primary working tree (#48)', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-primary-tree-repo-'));
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'README.md'), '# fixture\n');
+      execFileSync('git', ['add', 'README.md'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'uncommitted-notes.txt'), 'work in progress\n');
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+
+      const handle = { repositoryRoot, path: repositoryRoot, branch: 'cc/T-48/builder', baseRef: 'HEAD', baseSha: head, taskId: 'T-48', agentId: 'builder' };
+      expect(() => commitAgentChanges(handle, 'feat(agent): builder for T-48')).toThrow(/primary working tree/);
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim()).toBe(head);
+      expect(gitChangedFiles(repositoryRoot)).toEqual(['uncommitted-notes.txt']);
+    } finally {
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('commits agent changes inside a managed linked worktree without touching the primary tree', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-linked-tree-repo-'));
+    const worktreeRoot = mkdtempSync(join(tmpdir(), 'cc-linked-worktrees-'));
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'README.md'), '# fixture\n');
+      execFileSync('git', ['add', 'README.md'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+
+      const handle = new WorktreeManager(worktreeRoot).create(repositoryRoot, 'T-LINKED', 'builder');
+      writeFileSync(join(handle.path, 'agent-output.txt'), 'agent change\n');
+      const commit = commitAgentChanges(handle, 'feat(agent): builder for T-LINKED');
+
+      expect(commit?.created).toBe(true);
+      expect(commit?.files).toEqual(['agent-output.txt']);
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim()).toBe(head);
+      expect(gitChangedFiles(repositoryRoot)).toEqual([]);
+    } finally {
       rmSync(worktreeRoot, { recursive: true, force: true });
       rmSync(repositoryRoot, { recursive: true, force: true });
     }
