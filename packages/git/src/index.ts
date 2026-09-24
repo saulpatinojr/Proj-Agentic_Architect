@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 
 export interface WorktreeHandle {
   repositoryRoot: string;
@@ -97,19 +97,32 @@ export function worktreeChangedFiles(handle: WorktreeHandle): string[] {
 }
 
 // Agent commits stage everything with `git add --all`, which is only safe inside
-// an isolated linked worktree created by WorktreeManager. A primary working tree
-// (git-dir equal to the common git-dir) holds a person's uncommitted work and
-// must never be committed on their behalf, so refuse it outright (issue #48).
-export function assertLinkedWorktree(handle: WorktreeHandle): void {
-  const [gitDir, commonDir] = git(handle.path, ['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir'])
-    .trim().split(/\r?\n/).map((path) => resolve(path));
-  if (!gitDir || !commonDir || gitDir === commonDir) {
-    throw new Error(`Refusing to commit agent changes in ${handle.path}: it is a repository's primary working tree, not a Code Conductor linked worktree.`);
+// the isolated worktree WorktreeManager created for that agent. Anything else may
+// hold a person's uncommitted work, so refuse it outright (issue #48). The handle
+// must name a linked worktree (git-dir differs from the common git-dir, so not a
+// primary working tree) that still has the handle's agent branch checked out;
+// WorktreeManager.create always checks that branch out, and Git lets a branch be
+// checked out in only one worktree at a time.
+export function assertAgentWorktree(handle: WorktreeHandle): void {
+  const refuse = (reason: string): never => {
+    throw new Error(`Refusing to commit agent changes in ${handle.path}: ${reason}`);
+  };
+  const paths = git(handle.path, ['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir']).trim().split(/\r?\n/);
+  // Git older than 2.31 echoes the unknown --path-format flag back as an extra
+  // line, so anything but exactly two absolute paths fails closed.
+  if (paths.length !== 2 || !paths.every((path) => isAbsolute(path))) {
+    refuse('could not determine its Git worktree layout (Git 2.31 or later is required).');
+  }
+  const [gitDir, commonDir] = paths.map((path) => resolve(path));
+  if (gitDir === commonDir) refuse('it is a repository\'s primary working tree, not a Code Conductor agent worktree.');
+  const head = git(handle.path, ['symbolic-ref', '-q', 'HEAD'], true).trim();
+  if (head !== `refs/heads/${handle.branch}`) {
+    refuse(`it has ${head || 'a detached HEAD'} checked out, not the agent branch ${handle.branch}.`);
   }
 }
 
 export function commitAgentChanges(handle: WorktreeHandle, message: string): AgentCommit | undefined {
-  assertLinkedWorktree(handle);
+  assertAgentWorktree(handle);
   const files = worktreeChangedFiles(handle);
   if (!files.length) return undefined;
   assertSafeChangedPaths(files);

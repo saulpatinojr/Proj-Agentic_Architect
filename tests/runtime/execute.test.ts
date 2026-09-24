@@ -58,9 +58,11 @@ function initRepository(path: string): string {
   mkdirSync(path, { recursive: true });
   git(path, 'init', '-q');
   writeFileSync(join(path, 'README.md'), '# fixture\n');
-  // The validator reads gate profiles from the builder's worktree, which in real
-  // runs is a checkout of the repository under work, so carry its config over.
+  // The validator detects gate profiles in the builder's worktree, which in real runs
+  // is a checkout of the repository under work. Carry over the gate config and the
+  // files the code-conductor profile detects on, so the validator still runs gates.
   cpSync(resolve('config'), join(path, 'config'), { recursive: true });
+  for (const file of ['package.json', 'tsconfig.json']) cpSync(resolve(file), join(path, file));
   git(path, 'add', '.');
   git(path, '-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-q', '-m', 'fixture');
   return path;
@@ -93,6 +95,7 @@ describe('run execution', () => {
       });
       expect(outcome.manifest.results.map((r) => r.role)).toEqual(['builder', 'reviewer', 'validator']);
       expect(outcome.manifest.results[0]?.surface).toBe('cli');
+      expect(outcome.manifest.gates.length).toBeGreaterThan(0);
       expect(outcome.manifest.mergeDecision?.decision).toBe('ready');
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
@@ -173,31 +176,39 @@ describe('run execution', () => {
       expect(outcome.manifest.results[0]?.changes).toEqual(['agent-output.txt']);
       const worktreePath = outcome.worktrees[0]?.path ?? '';
       expect(git(worktreePath, 'show', '--name-only', '--format=%s', 'HEAD')).toContain('agent-output.txt');
+      expect(outcome.manifest.gates.length).toBeGreaterThan(0);
       expect(git(resolve('.'), 'rev-parse', 'HEAD')).toBe(checkoutHead);
       expect(existsSync(join(resolve('.'), 'agent-output.txt'))).toBe(false);
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
 
-  it('blocks a builder whose worktree is a primary working tree instead of committing it (#48)', async () => {
-    const temp = mkdtempSync(join(tmpdir(), 'cc-run-primary-tree-test-'));
+  // #48 was reproduced in a contributor's own linked worktree, so a primary working
+  // tree is not the only checkout the unsafe double could have been aimed at.
+  it.each([
+    ['a primary working tree', false, 'primary working tree'],
+    ['a contributor\'s own linked worktree', true, 'not the agent branch'],
+  ])('blocks a builder whose worktree is %s instead of committing it (#48)', async (_label, linked, reason) => {
+    const temp = mkdtempSync(join(tmpdir(), 'cc-run-foreign-tree-test-'));
     try {
-      const checkout = initRepository(join(temp, 'contributor-checkout'));
+      const repository = initRepository(join(temp, 'contributor-repo'));
+      const checkout = linked ? join(temp, 'contributor-worktree') : repository;
+      if (linked) git(repository, 'worktree', 'add', '-q', '-b', 'contributor-feature', checkout);
       writeFileSync(join(checkout, 'uncommitted-notes.txt'), 'work in progress\n');
       const head = git(checkout, 'rev-parse', 'HEAD');
       // The unsafe double from #48, aimed at a throwaway repository so a regression
       // cannot damage the checkout running the suite.
-      const primaryTree = {
+      const foreignTree = {
         root: temp,
         create: (_root: string, taskId: string, agentId: string): WorktreeHandle => ({ repositoryRoot: checkout, path: checkout, branch: `cc/${taskId}/${agentId}`, baseRef: 'HEAD', baseSha: head, taskId, agentId }),
         remove: (): void => {},
       } as unknown as WorktreeManager;
       const adapters = new Map<string, HarnessAdapter>([['codex', new WritingAdapter('codex', 'openai')], ['claude', new WritingAdapter('claude', 'anthropic')]]);
-      const outcome = await executeTask(resolve('.'), createTask('primary tree R1 run', 'R1', resolve('.')), {
-        execute: true, adapters, store: new RunStore(temp), worktrees: primaryTree,
+      const outcome = await executeTask(resolve('.'), createTask('foreign tree R1 run', 'R1', resolve('.')), {
+        execute: true, adapters, store: new RunStore(temp), worktrees: foreignTree,
         gateExecutor: () => ({ status: 0, stdout: 'ok', stderr: '' }), isHarnessTrusted: () => true,
       });
       expect(outcome.manifest.results[0]?.status).toBe('blocked');
-      expect(outcome.manifest.results[0]?.blockers.join(' ')).toContain('primary working tree');
+      expect(outcome.manifest.results[0]?.blockers.join(' ')).toContain(reason);
       expect(outcome.manifest.mergeDecision?.decision).toBe('changes_required');
       expect(git(checkout, 'rev-parse', 'HEAD')).toBe(head);
       expect(git(checkout, 'status', '--porcelain')).toContain('uncommitted-notes.txt');

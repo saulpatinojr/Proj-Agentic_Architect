@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { WorktreeManager, assertSafeChangedPaths, commitAgentChanges, gitChangedFiles, isSensitiveRepositoryPath, resolveRepositoryRoot, safeGitRefSegment } from '../../packages/git/src/index.js';
 
@@ -132,6 +132,65 @@ describe('git helpers', () => {
       expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim()).toBe(head);
       expect(gitChangedFiles(repositoryRoot)).toEqual([]);
     } finally {
+      rmSync(worktreeRoot, { recursive: true, force: true });
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses to commit agent changes in a linked worktree that is not on the agent branch (#48)', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-foreign-worktree-repo-'));
+    const contributorWorktree = join(mkdtempSync(join(tmpdir(), 'cc-foreign-worktree-')), 'feature');
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'README.md'), '# fixture\n');
+      execFileSync('git', ['add', 'README.md'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      // A person's own linked worktree, like the one #48 was reproduced in.
+      execFileSync('git', ['worktree', 'add', '-b', 'contributor-feature', contributorWorktree], { cwd: repositoryRoot });
+      writeFileSync(join(contributorWorktree, 'uncommitted-notes.txt'), 'work in progress\n');
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: contributorWorktree, encoding: 'utf8' }).trim();
+
+      const handle = { repositoryRoot, path: contributorWorktree, branch: 'cc/T-48/builder', baseRef: 'HEAD', baseSha: head, taskId: 'T-48', agentId: 'builder' };
+      expect(() => commitAgentChanges(handle, 'feat(agent): builder for T-48')).toThrow(/refs\/heads\/contributor-feature checked out, not the agent branch cc\/T-48\/builder/);
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: contributorWorktree, encoding: 'utf8' }).trim()).toBe(head);
+      expect(gitChangedFiles(contributorWorktree)).toEqual(['uncommitted-notes.txt']);
+    } finally {
+      rmSync(join(contributorWorktree, '..'), { recursive: true, force: true });
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('fails closed when Git cannot report absolute worktree paths', () => {
+    if (process.platform === 'win32') return;
+
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-old-git-repo-'));
+    const worktreeRoot = mkdtempSync(join(tmpdir(), 'cc-old-git-worktrees-'));
+    const shimDirectory = mkdtempSync(join(tmpdir(), 'cc-old-git-shim-'));
+    const originalPath = process.env.PATH;
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'README.md'), '# fixture\n');
+      execFileSync('git', ['add', 'README.md'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      const handle = new WorktreeManager(worktreeRoot).create(repositoryRoot, 'T-OLD-GIT', 'builder');
+      writeFileSync(join(handle.path, 'agent-output.txt'), 'agent change\n');
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: handle.path, encoding: 'utf8' }).trim();
+
+      // Git before 2.31 does not know --path-format and echoes it back as output.
+      const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+      const shim = join(shimDirectory, 'git');
+      writeFileSync(shim, `#!/bin/sh\nfor arg; do shift; [ "$arg" = --path-format=absolute ] && arg=--path-format-unknown; set -- "$@" "$arg"; done\nexec "${realGit}" "$@"\n`);
+      chmodSync(shim, 0o755);
+      process.env.PATH = `${shimDirectory}${delimiter}${originalPath ?? ''}`;
+
+      expect(() => commitAgentChanges(handle, 'feat(agent): builder for T-OLD-GIT')).toThrow(/Git 2\.31 or later is required/);
+      process.env.PATH = originalPath;
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: handle.path, encoding: 'utf8' }).trim()).toBe(head);
+      expect(gitChangedFiles(handle.path)).toEqual(['agent-output.txt']);
+    } finally {
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+      rmSync(shimDirectory, { recursive: true, force: true });
       rmSync(worktreeRoot, { recursive: true, force: true });
       rmSync(repositoryRoot, { recursive: true, force: true });
     }
