@@ -26,9 +26,9 @@ try {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   manifest.publisher = publisher;
   manifest.license = 'Apache-2.0';
-  manifest.repository = { type: 'git', url: 'https://github.com/saulpatinojr/Proj-Agentic_Architect.git' };
-  manifest.homepage = 'https://github.com/saulpatinojr/Proj-Agentic_Architect#readme';
-  manifest.bugs = { url: 'https://github.com/saulpatinojr/Proj-Agentic_Architect/issues' };
+  manifest.repository = { type: 'git', url: 'https://github.com/saulpatinojr/Proj-Code_Conductor.git' };
+  manifest.homepage = 'https://github.com/saulpatinojr/Proj-Code_Conductor#readme';
+  manifest.bugs = { url: 'https://github.com/saulpatinojr/Proj-Code_Conductor/issues' };
   delete manifest.private;
   // The extension and cc runtime are bundled, so Marketplace packages should
   // not carry the workspace node_modules graph.

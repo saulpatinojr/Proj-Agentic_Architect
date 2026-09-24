@@ -12,7 +12,7 @@ This file is the durable record of user-approved architectural decisions. It exi
 
 | ID | Decision | Status |
 |---|---|---|
-| D-001 | `saulpatinojr/Proj-Agentic_Architect` is the canonical GitHub home for Code Conductor and its durable architecture/code/docs. | LOCKED |
+| D-001 | `saulpatinojr/Proj-Code_Conductor` is the canonical GitHub home for Code Conductor and its durable architecture/code/docs. See ADR 0010. | LOCKED |
 | D-002 | VS Code is the primary human cockpit. Code Conductor augments native VS Code surfaces instead of replacing chat, diff, terminal, Source Control, or PR UI. | LOCKED |
 | D-003 | Code Conductor is the runtime orchestration/policy/evidence layer. MCP is the tool/reference plane, not the scheduler. | LOCKED |
 | D-004 | Microsoft APM is the package, dependency, lock, distribution, integrity, and drift-governance layer for Agent Packs and supported MCP declarations. | LOCKED |
