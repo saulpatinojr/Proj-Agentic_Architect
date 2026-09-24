@@ -39,5 +39,5 @@
     }
   },
   "dependencies": { "yaml": "^2.8.0" },
-  "devDependencies": { "@types/vscode": "^1.105.0" }
+  "devDependencies": { "@types/vscode": "^1.138.0" }
 }
