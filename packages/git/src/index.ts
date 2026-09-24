@@ -1,8 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 
 export interface WorktreeHandle {
   repositoryRoot: string;
@@ -38,8 +38,24 @@ function ensurePrivateDirectory(path: string): void {
   chmodSync(path, 0o700);
 }
 
+// Git's repository-local environment variables (`git rev-parse --local-env-vars`).
+// Git exports several of them to hooks, and dotfiles-style shells set them, so an
+// inherited value would silently point a command at another repository, index, or
+// work tree than the one named by cwd. Child git processes therefore never see them.
+export const GIT_LOCAL_ENV_VARS = [
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT', 'GIT_OBJECT_DIRECTORY',
+  'GIT_DIR', 'GIT_WORK_TREE', 'GIT_IMPLICIT_WORK_TREE', 'GIT_GRAFT_FILE', 'GIT_INDEX_FILE', 'GIT_NO_REPLACE_OBJECTS',
+  'GIT_REPLACE_REF_BASE', 'GIT_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_COMMON_DIR',
+] as const;
+
+export function withoutGitLocalEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const scrubbed = { ...env };
+  for (const name of GIT_LOCAL_ENV_VARS) delete scrubbed[name];
+  return scrubbed;
+}
+
 function git(cwd: string, args: string[], allowFailure = false): string {
-  const result = spawnSync('git', args, { cwd, encoding: 'utf8', shell: false });
+  const result = spawnSync('git', args, { cwd, encoding: 'utf8', env: withoutGitLocalEnv(), shell: false });
   if (result.error) {
     throw new Error(`git ${args.join(' ')} failed to start: ${result.error.message}`);
   }
@@ -96,7 +112,36 @@ export function worktreeChangedFiles(handle: WorktreeHandle): string[] {
   return [...new Set([...committed, ...gitChangedFiles(handle.path)])].sort();
 }
 
+// Agent commits stage everything with `git add --all`, which is only safe inside
+// the isolated worktree WorktreeManager created for that agent. Anything else may
+// hold a person's uncommitted work, so refuse it outright (issue #48). The handle
+// must name the top level of a linked worktree (git-dir differs from the common
+// git-dir, so not a primary working tree) that still has the handle's `cc/` agent
+// branch checked out; WorktreeManager.create always checks that branch out, and
+// Git lets a branch be checked out in only one worktree at a time.
+export function assertAgentWorktree(handle: WorktreeHandle): void {
+  const refuse = (reason: string): never => {
+    throw new Error(`Refusing to commit agent changes in ${handle.path}: ${reason}`);
+  };
+  const paths = git(handle.path, ['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir', '--show-toplevel']).trim().split(/\r?\n/);
+  // Git older than 2.31 echoes the unknown --path-format flag back as an extra
+  // line, so anything but exactly three absolute paths fails closed.
+  if (paths.length !== 3 || !paths.every((path) => isAbsolute(path))) {
+    refuse('could not determine its Git worktree layout (Git 2.31 or later is required).');
+  }
+  const [gitDir, commonDir, topLevel] = paths.map((path) => resolve(path));
+  if (gitDir === commonDir) refuse('it is a repository\'s primary working tree, not a Code Conductor agent worktree.');
+  if (!topLevel || realpathSync(topLevel) !== realpathSync(handle.path)) {
+    refuse(`Git resolves its work tree to ${topLevel ?? 'nothing'}, not the agent worktree itself.`);
+  }
+  const head = git(handle.path, ['symbolic-ref', '-q', 'HEAD'], true).trim();
+  if (!handle.branch.startsWith('cc/') || head !== `refs/heads/${handle.branch}`) {
+    refuse(`it has ${head || 'a detached HEAD'} checked out, not a Code Conductor agent branch matching ${handle.branch}.`);
+  }
+}
+
 export function commitAgentChanges(handle: WorktreeHandle, message: string): AgentCommit | undefined {
+  assertAgentWorktree(handle);
   const files = worktreeChangedFiles(handle);
   if (!files.length) return undefined;
   assertSafeChangedPaths(files);
