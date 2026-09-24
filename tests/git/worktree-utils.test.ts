@@ -151,7 +151,7 @@ describe('git helpers', () => {
       const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: contributorWorktree, encoding: 'utf8' }).trim();
 
       const handle = { repositoryRoot, path: contributorWorktree, branch: 'cc/T-48/builder', baseRef: 'HEAD', baseSha: head, taskId: 'T-48', agentId: 'builder' };
-      expect(() => commitAgentChanges(handle, 'feat(agent): builder for T-48')).toThrow(/refs\/heads\/contributor-feature checked out, not the agent branch cc\/T-48\/builder/);
+      expect(() => commitAgentChanges(handle, 'feat(agent): builder for T-48')).toThrow(/refs\/heads\/contributor-feature checked out, not a Code Conductor agent branch matching cc\/T-48\/builder/);
       expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: contributorWorktree, encoding: 'utf8' }).trim()).toBe(head);
       expect(gitChangedFiles(contributorWorktree)).toEqual(['uncommitted-notes.txt']);
     } finally {
@@ -191,6 +191,97 @@ describe('git helpers', () => {
       if (originalPath === undefined) delete process.env.PATH;
       else process.env.PATH = originalPath;
       rmSync(shimDirectory, { recursive: true, force: true });
+      rmSync(worktreeRoot, { recursive: true, force: true });
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a handle that names a person\'s own branch instead of a Code Conductor agent branch', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-foreign-branch-repo-'));
+    const contributorWorktree = join(mkdtempSync(join(tmpdir(), 'cc-foreign-branch-')), 'feature');
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'README.md'), '# fixture\n');
+      execFileSync('git', ['add', 'README.md'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      execFileSync('git', ['worktree', 'add', '-b', 'feature/human', contributorWorktree], { cwd: repositoryRoot });
+      writeFileSync(join(contributorWorktree, 'uncommitted-notes.txt'), 'work in progress\n');
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: contributorWorktree, encoding: 'utf8' }).trim();
+
+      const handle = { repositoryRoot, path: contributorWorktree, branch: 'feature/human', baseRef: 'HEAD', baseSha: head, taskId: 'T-48', agentId: 'builder' };
+      expect(() => commitAgentChanges(handle, 'feat(agent): builder for T-48')).toThrow(/not a Code Conductor agent branch/);
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: contributorWorktree, encoding: 'utf8' }).trim()).toBe(head);
+      expect(gitChangedFiles(contributorWorktree)).toEqual(['uncommitted-notes.txt']);
+    } finally {
+      rmSync(join(contributorWorktree, '..'), { recursive: true, force: true });
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  // Git exports GIT_DIR/GIT_INDEX_FILE to hooks and dotfiles shells set GIT_WORK_TREE,
+  // so a run launched from either must not have its git commands redirected to the
+  // person's own checkout or index.
+  it.each([
+    ['GIT_WORK_TREE', (primary: string) => primary],
+    ['GIT_INDEX_FILE', (primary: string) => join(primary, '.git', 'index')],
+  ])('ignores an inherited %s pointing at a person\'s checkout', (name, value) => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-inherited-env-repo-'));
+    const worktreeRoot = mkdtempSync(join(tmpdir(), 'cc-inherited-env-worktrees-'));
+    const original = process.env[name];
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'README.md'), '# fixture\n');
+      execFileSync('git', ['add', 'README.md'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'staged.txt'), 'staged by a person\n');
+      execFileSync('git', ['add', 'staged.txt'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'uncommitted-notes.txt'), 'work in progress\n');
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+      const status = execFileSync('git', ['status', '--porcelain'], { cwd: repositoryRoot, encoding: 'utf8' });
+
+      process.env[name] = value(repositoryRoot);
+      const handle = new WorktreeManager(worktreeRoot).create(repositoryRoot, 'T-ENV', 'builder');
+      writeFileSync(join(handle.path, 'agent-output.txt'), 'agent change\n');
+      const commit = commitAgentChanges(handle, 'feat(agent): builder for T-ENV');
+      if (original === undefined) delete process.env[name];
+      else process.env[name] = original;
+
+      expect(commit?.files).toEqual(['agent-output.txt']);
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim()).toBe(head);
+      expect(execFileSync('git', ['status', '--porcelain'], { cwd: repositoryRoot, encoding: 'utf8' })).toBe(status);
+    } finally {
+      if (original === undefined) delete process.env[name];
+      else process.env[name] = original;
+      rmSync(worktreeRoot, { recursive: true, force: true });
+      rmSync(repositoryRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a handle whose path is a primary tree even when GIT_DIR names an agent worktree', () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), 'cc-inherited-gitdir-repo-'));
+    const worktreeRoot = mkdtempSync(join(tmpdir(), 'cc-inherited-gitdir-worktrees-'));
+    const original = process.env.GIT_DIR;
+    try {
+      execFileSync('git', ['init'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'README.md'), '# fixture\n');
+      execFileSync('git', ['add', 'README.md'], { cwd: repositoryRoot });
+      execFileSync('git', ['-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'fixture'], { cwd: repositoryRoot });
+      writeFileSync(join(repositoryRoot, 'uncommitted-notes.txt'), 'work in progress\n');
+      const agent = new WorktreeManager(worktreeRoot).create(repositoryRoot, 'T-GITDIR', 'builder');
+      const agentGitDir = execFileSync('git', ['rev-parse', '--absolute-git-dir'], { cwd: agent.path, encoding: 'utf8' }).trim();
+      const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+
+      process.env.GIT_DIR = agentGitDir;
+      expect(() => commitAgentChanges({ ...agent, path: repositoryRoot }, 'feat(agent): builder for T-GITDIR')).toThrow(/primary working tree/);
+      if (original === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = original;
+
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: agent.path, encoding: 'utf8' }).trim()).toBe(agent.baseSha);
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repositoryRoot, encoding: 'utf8' }).trim()).toBe(head);
+      expect(gitChangedFiles(repositoryRoot)).toEqual(['uncommitted-notes.txt']);
+    } finally {
+      if (original === undefined) delete process.env.GIT_DIR;
+      else process.env.GIT_DIR = original;
       rmSync(worktreeRoot, { recursive: true, force: true });
       rmSync(repositoryRoot, { recursive: true, force: true });
     }

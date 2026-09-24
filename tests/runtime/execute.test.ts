@@ -164,8 +164,8 @@ describe('run execution', () => {
   });
 
   it('commits builder changes inside a linked worktree, never in the checkout running the suite (#48)', async () => {
-    const temp = mkdtempSync(join(tmpdir(), 'cc-run-isolation-test-'));
     const checkoutHead = git(resolve('.'), 'rev-parse', 'HEAD');
+    const temp = mkdtempSync(join(tmpdir(), 'cc-run-isolation-test-'));
     try {
       const adapters = new Map<string, HarnessAdapter>([['codex', new WritingAdapter('codex', 'openai')], ['claude', new WritingAdapter('claude', 'anthropic')]]);
       const outcome = await executeTask(resolve('.'), createTask('isolated R1 run', 'R1', resolve('.')), {
@@ -186,7 +186,7 @@ describe('run execution', () => {
   // tree is not the only checkout the unsafe double could have been aimed at.
   it.each([
     ['a primary working tree', false, 'primary working tree'],
-    ['a contributor\'s own linked worktree', true, 'not the agent branch'],
+    ['a contributor\'s own linked worktree', true, 'not a Code Conductor agent branch'],
   ])('blocks a builder whose worktree is %s instead of committing it (#48)', async (_label, linked, reason) => {
     const temp = mkdtempSync(join(tmpdir(), 'cc-run-foreign-tree-test-'));
     try {
