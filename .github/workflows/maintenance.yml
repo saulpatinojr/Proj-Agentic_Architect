@@ -1,0 +1,74 @@
+name: Repository maintenance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Delete only exact, verified merged branch tips
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - run: node --test tests/maintenance/*.test.mjs
+
+  cleanup:
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+      (github.event_name == 'pull_request' && github.event.action == 'closed' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: verified-merged-branch-cleanup
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Check out the immutable reviewed merge or dispatch revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+          fetch-depth: 0
+      - name: Verify exact trusted revision before running repository code
+        env:
+          TRUSTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TRUSTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$TRUSTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - run: node --test tests/maintenance/*.test.mjs
+      - name: Preview eligible merged branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-maintenance.mjs branches --repository "$GITHUB_REPOSITORY"
+      - name: Delete unchanged merged tips with explicit Git leases
+        if: github.event_name == 'pull_request' || inputs.apply == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/github-maintenance.mjs branches --repository "$GITHUB_REPOSITORY" --apply
