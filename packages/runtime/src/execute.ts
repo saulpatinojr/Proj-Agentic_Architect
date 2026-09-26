@@ -3,12 +3,14 @@ import type { AgentAssignment, AgentResult, MergeDecision, RunManifest, TaskEnve
 import type { HarnessAdapter, HarnessExecutionRequest } from '@code-conductor/adapters';
 import { createBuiltinAdapters } from '@code-conductor/adapters';
 import { RunStore } from '@code-conductor/evidence';
-import { blockingGateFailure, runGates, type CommandExecutor, type GateExecution } from '@code-conductor/gates';
+import { blockingGateFailure, runGates, type CommandExecutor, type GateExecution, type GateConfig } from '@code-conductor/gates';
+import { readDefaultDocument, type ConfigurationOptions } from './configuration.js';
 import { commitAgentChanges, WorktreeManager, type WorktreeHandle } from '@code-conductor/git';
 import { externalAwaitingResult, parseAgentResult } from './result.js';
 import { planTask, type TaskPlan } from './planner.js';
 
 export interface ExecuteOptions {
+  configuration?: ConfigurationOptions;
   execute?: boolean;
   adapters?: Map<string, HarnessAdapter>;
   store?: RunStore;
@@ -48,7 +50,7 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
   const store = options.store ?? new RunStore();
   const worktrees = options.worktrees ?? new WorktreeManager();
   const available = new Set([...adapters.entries()].filter(([, adapter]) => adapter.available()).map(([id]) => id));
-  const plan = planTask(root, task, { availableHarnesses: available.size ? available : undefined });
+  const plan = planTask(root, task, { availableHarnesses: available.size ? available : undefined, configuration: options.configuration });
   const manifest: RunManifest = { runId: plan.runId, task, assignments: plan.assignments, results: [], gates: [] };
   const pendingExternal: AgentAssignment[] = [];
   const createdWorktrees: WorktreeHandle[] = [];
@@ -71,15 +73,15 @@ export async function executeTask(root: string, task: TaskEnvelope, options: Exe
 
       if (assignment.harness === 'internal-validator') {
         const validationRoot = primaryBuilderWorktree?.path ?? root;
-        const gateExecutions = runGates(validationRoot, undefined, options.gateExecutor);
+        const gateExecutions = runGates(validationRoot, undefined, options.gateExecutor, readDefaultDocument('gates').document as GateConfig);
         executedGates.push(...gateExecutions);
         manifest.gates.push(...gateExecutions.map((item) => item.result));
-        const failed = blockingGateFailure(gateExecutions);
+        const failed = gateExecutions.length === 0 || blockingGateFailure(gateExecutions);
         manifest.results.push({
           taskId: task.id, assignmentId: assignment.id, agentId: assignment.agentId, role: assignment.role, stance: assignment.stance,
           provider: assignment.provider, harness: assignment.harness, ...(assignment.surface ? { surface: assignment.surface } : {}), billingChannel: 'local', status: failed ? 'failed' : 'completed', changes: [],
           tests: gateExecutions.map((item) => item.result), evidence: gateExecutions.map((item) => item.evidence), findings: [], risks: [],
-          blockers: failed ? ['Blocking deterministic gate failed.'] : [], recommendation: failed ? 'changes_required' : 'continue',
+          blockers: failed ? [gateExecutions.length ? 'Blocking deterministic gate failed.' : 'No applicable deterministic gate profile; configure a validated profile before readiness.'] : [], recommendation: failed ? 'changes_required' : 'continue',
         });
         store.appendEvent({ at: new Date().toISOString(), runId: plan.runId, type: 'validation.completed', assignmentId: assignment.id, message: failed ? 'failed' : 'completed' });
         manifestPath = save();

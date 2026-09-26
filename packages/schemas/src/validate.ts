@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
+import AjvModule from 'ajv/dist/2020.js';
+import FormatsModule from 'ajv-formats';
 import type { ErrorObject, ValidateFunction } from 'ajv';
 
 export type ContractName = 'TaskEnvelope' | 'AgentAssignment' | 'AgentResult' | 'Evidence' | 'Finding' | 'GateResult' | 'ReviewResult' | 'MergeDecision' | 'RunManifest';
@@ -14,13 +15,13 @@ type AddFormats = (ajv: AjvInstance) => unknown;
 
 // Use Ajv's 2020 constructor because the contract schema declares JSON Schema
 // draft 2020-12. Resolve the CommonJS/ESM boundary explicitly under NodeNext.
-const require = createRequire(import.meta.url);
-const loadedAjv = require('ajv/dist/2020') as unknown;
+const loadedAjv = AjvModule as unknown;
 const Ajv2020 = ((loadedAjv as { default?: AjvConstructor }).default ?? loadedAjv) as AjvConstructor;
-const loadedFormats = require('ajv-formats') as unknown;
+const loadedFormats = FormatsModule as unknown;
 const addFormats = ((loadedFormats as { default?: AddFormats }).default ?? loadedFormats) as AddFormats;
 
-const schemaPath = new URL('../schema/contracts.schema.json', import.meta.url);
+const packagedSchemaPath = new URL('./contracts.schema.json', import.meta.url);
+const schemaPath = existsSync(packagedSchemaPath) ? packagedSchemaPath : new URL('../schema/contracts.schema.json', import.meta.url);
 const schema = JSON.parse(readFileSync(schemaPath, 'utf8')) as { $id: string };
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);

@@ -5,11 +5,11 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { AgentAssignment, RiskClass, TaskEnvelope } from '@code-conductor/schemas';
 import { validateRepositoryConfig } from '@code-conductor/policy';
-import { createTask, executeTask, planTask, parseAgentResult } from '@code-conductor/runtime';
+import { createTask, executeTask, planTask, parseAgentResult, resolvePlanningConfiguration, readDefaultDocument } from '@code-conductor/runtime';
 import { createBuiltinAdapters } from '@code-conductor/adapters';
 import { WorkstationStore, type HarnessTrustMode } from '@code-conductor/workstation';
 import { apmAudit, apmLockPresent, apmTargets } from '@code-conductor/apm-adapter';
-import { detectRepositoryProfiles, loadMcpCatalog, selectMcpServers } from '@code-conductor/mcp';
+import { detectRepositoryProfiles, selectMcpServers, type McpCatalog } from '@code-conductor/mcp';
 import { githubAuthStatus, pullRequestChecks, pullRequestStatus } from '@code-conductor/github-gate';
 import { ContextOptimizer } from '@code-conductor/context-optimizer';
 
@@ -75,7 +75,14 @@ function doctor(root: string): number {
   for (const variable of ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'PERPLEXITY_API_KEY']) if (process.env[variable]) console.log(`WARN billing.api_credential_detected: ${variable} is set; subscription-first policy may be bypassed. Value is intentionally not displayed.`);
   if (hasCommand('gh')) console.log(`${githubAuthStatus(root).ok ? 'OK' : 'WARN'} github-auth`);
   if (hasCommand('apm')) { console.log(`${apmTargets(root).ok ? 'OK' : 'WARN'} apm-targets`); console.log(`${apmLockPresent(root) ? 'OK' : 'WARN'} apm-lock`); }
-  const configStatus = printValidation(root);
+  let configStatus = 0;
+  try {
+    const config = resolvePlanningConfiguration(root);
+    console.log(`OK bundled configuration (${config.evidence.length} verified default documents; workspace overrides require explicit approval)`);
+  } catch (error) {
+    configStatus = 1;
+    console.error(`ERROR configuration: ${error instanceof Error ? error.message : String(error)}`);
+  }
   return missingRequired || configStatus !== 0 ? 1 : 0;
 }
 
@@ -146,7 +153,7 @@ async function harnessSmoke(args: string[]): Promise<number> {
   } finally { rmSync(root, { recursive: true, force: true }); }
 }
 
-function mcpList(args: string[]): number { const root = resolve(getOption(args, '--repo') ?? '.'); const catalog = loadMcpCatalog(root); const profiles = getOption(args, '--profiles')?.split(',').filter(Boolean) ?? detectRepositoryProfiles(root); const allowApi = args.includes('--allow-api'); console.log(JSON.stringify({ profiles, allowSeparatelyBilledApi: allowApi, servers: selectMcpServers(catalog, profiles, allowApi).map(([id, server]) => ({ id, publisher: server.publisher, maturity: server.maturity, authentication: server.authentication, defaultAccess: server.default_access })) }, null, 2)); return 0; }
+function mcpList(args: string[]): number { const root = resolve(getOption(args, '--repo') ?? '.'); const catalog = readDefaultDocument('mcp-catalog').document as McpCatalog; const profiles = getOption(args, '--profiles')?.split(',').filter(Boolean) ?? detectRepositoryProfiles(root); const allowApi = args.includes('--allow-api'); console.log(JSON.stringify({ profiles, allowSeparatelyBilledApi: allowApi, servers: selectMcpServers(catalog, profiles, allowApi).map(([id, server]) => ({ id, publisher: server.publisher, maturity: server.maturity, authentication: server.authentication, defaultAccess: server.default_access })) }, null, 2)); return 0; }
 function apmCheck(rootArg?: string): number { const root = resolve(rootArg ?? '.'); if (!hasCommand('apm')) { console.error('ERROR apm.missing: apm executable is required.'); return 1; } const result = apmAudit(root); process.stdout.write(result.stdout); process.stderr.write(result.stderr); return result.ok ? 0 : 1; }
 function githubGate(args: string[]): number { const root = resolve(getOption(args, '--repo') ?? '.'); if (!hasCommand('gh')) { console.error('ERROR github.missing: gh executable is required.'); return 1; } const status = pullRequestStatus(root); process.stdout.write(status.stdout); process.stderr.write(status.stderr); if (!status.ok) return 1; const checks = pullRequestChecks(root); process.stdout.write(checks.stdout); process.stderr.write(checks.stderr); return checks.ok ? 0 : 1; }
 function contextStats(): number { const optimizer = new ContextOptimizer(); console.log(JSON.stringify(optimizer.getStats(), null, 2)); return 0; }

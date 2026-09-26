@@ -63,6 +63,8 @@ function initRepository(path: string): string {
   // files the code-conductor profile detects on, so the validator still runs gates.
   cpSync(resolve('config'), join(path, 'config'), { recursive: true });
   for (const file of ['package.json', 'tsconfig.json']) cpSync(resolve(file), join(path, file));
+  mkdirSync(join(path, 'packages/cli/src'), { recursive: true });
+  writeFileSync(join(path, 'packages/cli/src/index.ts'), '// source-repository fixture marker\n');
   git(path, 'add', '.');
   git(path, '-c', 'user.name=Code Conductor Test', '-c', 'user.email=test@example.invalid', 'commit', '-q', '-m', 'fixture');
   return path;
@@ -84,7 +86,7 @@ class SandboxWorktrees extends WorktreeManager {
   }
 }
 
-describe('run execution', () => {
+ describe('run execution', () => {
   it('executes an R1 run with fake paid-client adapters and deterministic gates after explicit trust', async () => {
     const temp = mkdtempSync(join(tmpdir(), 'cc-run-test-'));
     try {

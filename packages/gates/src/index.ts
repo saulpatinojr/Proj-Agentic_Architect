@@ -22,7 +22,7 @@ interface GateProfile {
   gates: GateDefinition[];
 }
 
-interface GateConfig {
+export interface GateConfig {
   version: number;
   default_timeout_ms?: number;
   profiles: Record<string, GateProfile>;
@@ -119,8 +119,7 @@ export function detectGateProfiles(root: string, config = loadGateConfig(root)):
   return selected;
 }
 
-export function runGates(root: string, profiles?: string[], executor: CommandExecutor = defaultExecutor): GateExecution[] {
-  const config = loadGateConfig(root);
+export function runGates(root: string, profiles?: string[], executor: CommandExecutor = defaultExecutor, config: GateConfig = loadGateConfig(root)): GateExecution[] {
   const selected = profiles?.length ? profiles : detectGateProfiles(root, config);
   const executions: GateExecution[] = [];
   for (const profileName of selected) {

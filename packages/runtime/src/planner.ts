@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parse } from 'yaml';
+import { resolvePlanningConfiguration, type ConfigurationOptions, type ConfigurationEvidence } from './configuration.js';
 import type { AgentAssignment, BillingChannel, RiskClass, Stance, TaskEnvelope } from '@code-conductor/schemas';
 
 interface RoleConstraints {
@@ -45,7 +43,6 @@ interface CapabilityDocument {
 
 const riskRank: Record<RiskClass, number> = { R0: 0, R1: 1, R2: 2, R3: 3, R4: 4 };
 
-function load<T>(root: string, path: string): T { return parse(readFileSync(join(root, path), 'utf8')) as T; }
 function inheritedRoles(risks: RiskDocument, risk: RiskClass, seen = new Set<RiskClass>()): string[] {
   if (seen.has(risk)) throw new Error(`Risk inheritance cycle at ${risk}`);
   seen.add(risk);
@@ -105,13 +102,14 @@ function orderBySpecialization(candidates: string[], capabilities: CapabilityDoc
     .map((entry) => entry.harness);
 }
 
-export interface PlanOptions { availableHarnesses?: Set<string> }
-export interface TaskPlan { runId: string; task: TaskEnvelope; assignments: AgentAssignment[] }
+export interface PlanOptions { availableHarnesses?: Set<string>; configuration?: ConfigurationOptions }
+export interface TaskPlan { runId: string; task: TaskEnvelope; assignments: AgentAssignment[]; configurationEvidence: ConfigurationEvidence[] }
 
 export function planTask(root: string, task: TaskEnvelope, options: PlanOptions = {}): TaskPlan {
-  const roles = load<RolesDocument>(root, 'config/roles.yaml');
-  const risks = load<RiskDocument>(root, 'config/risk.yaml');
-  const capabilities = load<CapabilityDocument>(root, 'config/capabilities.yaml');
+  const resolved = resolvePlanningConfiguration(root, options.configuration);
+  const roles = resolved.roles as RolesDocument;
+  const risks = resolved.risks as RiskDocument;
+  const capabilities = resolved.capabilities as CapabilityDocument;
   const requiredRoles = inheritedRoles(risks, task.risk);
   const requestedSpecializations = inferredSpecializations(task, capabilities);
   const available = options.availableHarnesses;
@@ -159,7 +157,7 @@ export function planTask(root: string, task: TaskEnvelope, options: PlanOptions 
     assignments.push(assignment);
     if (roleName === 'builder') { builderProvider = capability.provider; builderAssignmentId = assignment.id; }
   }
-  return { runId: `CC-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 8)}`, task, assignments };
+  return { runId: `CC-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 8)}`, task, assignments, configurationEvidence: resolved.evidence };
 }
 
 export function createTask(objective: string, risk: RiskClass, repository?: string, specializations: string[] = []): TaskEnvelope {

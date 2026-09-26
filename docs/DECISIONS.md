@@ -120,3 +120,14 @@ When a future decision supersedes an entry above:
 3. describe migration impact;
 4. update this register in the same PR;
 5. update `AGENTS.md`, `STARTER.md`, configuration, tests, and implementation docs if affected.
+
+## D-057 - Packaged planning defaults and bounded routing overrides
+
+Owner-approved implementation of C01 (#43), detailed in ADR 0011. The planner
+loads module-anchored bundled defaults, not arbitrary customer role/risk YAML.
+Explicit content-approved user/workspace routing overlays may narrow or reorder
+eligible harnesses but cannot broaden authority, change provider identities or
+weaken mandatory risk policy. Canonical source YAML remains in config/.
+Static dependency imports and packaged schema/default assets must pass an isolated
+distribution test without source-tree node_modules. Full pre-action authorization
+remains separately tracked in #44; do not treat a content hash as human authentication.

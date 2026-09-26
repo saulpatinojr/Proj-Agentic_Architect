@@ -55,6 +55,8 @@ jobs:
         env:
           # Deliberate non-production validation identity; never published.
           VSCE_PUBLISHER: code-conductor-validation
+      - name: Execute bundled planner outside the source checkout
+        run: npm run test:packaged
       - name: Inspect package contents and retain verification material
         shell: bash
         run: |
