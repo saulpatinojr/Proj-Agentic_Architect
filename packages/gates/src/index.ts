@@ -1,5 +1,6 @@
+import { readBoundedFile } from '@code-conductor/policy/bounded-read';
 import { randomUUID } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { loadConfiguration } from '@code-conductor/policy';
@@ -113,10 +114,8 @@ export function detectGateProfiles(root: string, config = loadGateConfig(root)):
     if (detect.package_name) {
       try {
         const path = join(root, 'package.json');
-        const stat = lstatSync(path);
-        if (!stat.isFile() || stat.size > 1048576) continue;
-        const content = readFileSync(path);
-        if (content.length > 1048576 || JSON.parse(content.toString('utf8')).name !== detect.package_name) continue;
+        const content = readBoundedFile(path, 1048576);
+        if (JSON.parse(content.toString('utf8')).name !== detect.package_name) continue;
       } catch { continue; }
     }
     const allFiles = detect.all_files?.every((file) => existsSync(join(root, file))) ?? false;

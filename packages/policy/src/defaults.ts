@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync } from 'node:fs';
+import { lstatSync } from 'node:fs';
+import { readBoundedFile as readBounded } from './bounded-read.js';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,13 +15,6 @@ interface Roles { roles: Record<string, { preferred_harnesses?: string[] }> }
 interface Capabilities { harnesses: Record<string, unknown> }
 
 function hash(bytes: Buffer): string { return createHash('sha256').update(bytes).digest('hex'); }
-function readBounded(path: string, limit: number): Buffer {
-  const stat = lstatSync(path);
-  if (!stat.isFile() || stat.size > limit) throw new Error(`Configuration must be a bounded regular file: ${path}`);
-  const bytes = readFileSync(path);
-  if (bytes.length > limit) throw new Error(`Configuration exceeded its size limit: ${path}`);
-  return bytes;
-}
 function packaged(name: ConfigurationName): { document: unknown; source: ConfigurationSource } {
   if (!names.has(name)) throw new Error(`Unsupported packaged configuration: ${name}`);
   // Both tsc dist and source tests use the policy package's sibling defaults.

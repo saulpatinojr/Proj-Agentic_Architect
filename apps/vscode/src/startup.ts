@@ -1,6 +1,6 @@
+import { readBoundedFile } from '@code-conductor/policy/bounded-read';
 import { packagedConfigurationFingerprint } from '@code-conductor/policy';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 export type StartupMode = 'first_run' | 'config_changed' | 'warm';
@@ -32,12 +32,10 @@ export function workspaceFingerprint(root: string): string {
     const path = join(root, relativePath);
     hash.update(relativePath);
     hash.update('\0');
-    if (existsSync(path)) {
-      const stat = lstatSync(path);
-      if (stat.isFile() && stat.size <= 1048576) hash.update(readFileSync(path));
-      else hash.update('<unsupported-file>');
+    try { hash.update(readBoundedFile(path, 1048576)); }
+    catch (error) {
+      hash.update((error as NodeJS.ErrnoException).code === 'ENOENT' ? '<missing>' : '<unsupported-file>');
     }
-    else hash.update('<missing>');
     hash.update('\0');
   }
   return hash.digest('hex');

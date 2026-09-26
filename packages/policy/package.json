@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./bounded-read": {
+      "types": "./dist/bounded-read.d.ts",
+      "default": "./dist/bounded-read.js"
     }
   },
   "dependencies": {
