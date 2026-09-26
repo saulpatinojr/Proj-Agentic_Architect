@@ -39,7 +39,7 @@ function run(root: string, args: string[], options: ApmRunOptions = {}): ApmComm
   const reason = timedOut
     ? 'APM exceeded its time limit. Partial changes may remain; inspect the diff before retrying.'
     : outputLimitExceeded
-      ? 'APM exceeded its output limit. Output may be incomplete; do not treat this as a successful audit.'
+      ? 'APM exceeded its output limit. Partial changes and incomplete output may remain; inspect the diff before retrying. This operation did not succeed.'
       : result.error?.message;
   const stderr = [result.stderr || '', reason || ''].filter(Boolean).join('\n');
   return {

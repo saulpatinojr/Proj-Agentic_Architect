@@ -35,6 +35,11 @@ describe('bounded APM boundary', () => {
     spawn.mockReturnValue({ ...success(), error: Object.assign(new Error('overflow'), { code: 'ENOBUFS' }) });
     expect(apmAudit('/workspace')).toMatchObject({ ok: false, outputLimitExceeded: true, timedOut: false });
   });
+  it('warns install callers about partial changes after output overflow', () => {
+    spawn.mockReturnValue({ ...success(), error: Object.assign(new Error('overflow'), { code: 'ENOBUFS' }) });
+    expect(apmInstall('/workspace').stderr).toMatch(/Partial changes.*inspect the diff/);
+    expect(spawn).toHaveBeenCalledTimes(1);
+  });
   it('fails on nonzero exit status and signal termination', () => {
     spawn.mockReturnValue({ ...success(), status: 2, stderr: 'policy denied' });
     expect(apmAudit('/workspace')).toMatchObject({ ok: false, status: 2, stderr: 'policy denied' });
