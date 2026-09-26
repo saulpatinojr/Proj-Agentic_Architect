@@ -1,8 +1,9 @@
+import { readBoundedFile } from '@code-conductor/policy/bounded-read';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { parse } from 'yaml';
+import { loadConfiguration } from '@code-conductor/policy';
 import type { Evidence, GateResult } from '@code-conductor/schemas';
 
 export interface GateDefinition {
@@ -15,6 +16,7 @@ export interface GateDefinition {
 
 interface GateProfile {
   detect?: {
+    package_name?: string;
     all_files?: string[];
     any_file?: string[];
     any_glob?: string[];
@@ -100,7 +102,7 @@ export function globMatch(path: string, pattern: string): boolean {
 }
 
 export function loadGateConfig(root: string): GateConfig {
-  return parse(readFileSync(join(root, 'config/gates.yaml'), 'utf8')) as GateConfig;
+  return loadConfiguration<GateConfig>(root, 'gates').document;
 }
 
 export function detectGateProfiles(root: string, config = loadGateConfig(root)): string[] {
@@ -109,6 +111,13 @@ export function detectGateProfiles(root: string, config = loadGateConfig(root)):
   for (const [name, profile] of Object.entries(config.profiles)) {
     const detect = profile.detect;
     if (!detect) continue;
+    if (detect.package_name) {
+      try {
+        const path = join(root, 'package.json');
+        const content = readBoundedFile(path, 1048576);
+        if (JSON.parse(content.toString('utf8')).name !== detect.package_name) continue;
+      } catch { continue; }
+    }
     const allFiles = detect.all_files?.every((file) => existsSync(join(root, file))) ?? false;
     const anyFile = detect.any_file?.some((file) => existsSync(join(root, file))) ?? false;
     const anyGlob = detect.any_glob?.length
@@ -116,7 +125,7 @@ export function detectGateProfiles(root: string, config = loadGateConfig(root)):
       : false;
     if (allFiles || anyFile || anyGlob) selected.push(name);
   }
-  return selected;
+  return selected.includes('code-conductor') ? selected.filter((name) => name !== 'node') : selected;
 }
 
 export function runGates(root: string, profiles?: string[], executor: CommandExecutor = defaultExecutor): GateExecution[] {
@@ -148,6 +157,11 @@ export function runGates(root: string, profiles?: string[], executor: CommandExe
         result: { gate: gate.id, status: passed ? 'passed' : 'failed', evidenceIds: [evidenceId], summary },
       });
     }
+  }
+  if (!executions.length) {
+    const id = `E-${randomUUID()}`;
+    const summary = 'No applicable deterministic validation gates; readiness is blocked.';
+    executions.push({ profile: 'unmatched', blocking: true, result: { gate: 'no-applicable-gates', status: 'failed', evidenceIds: [id], summary }, evidence: { id, kind: 'test', source: 'gate-selection', summary } });
   }
   return executions;
 }

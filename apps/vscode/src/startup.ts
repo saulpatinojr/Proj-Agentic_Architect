@@ -1,6 +1,8 @@
+import { readBoundedFile } from '@code-conductor/policy/bounded-read';
+import { packagedConfigurationFingerprint } from '@code-conductor/policy';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { homedir } from 'node:os';
 
 export type StartupMode = 'first_run' | 'config_changed' | 'warm';
 
@@ -11,6 +13,7 @@ export interface StartupSnapshot {
 }
 
 const fingerprintFiles = [
+  '.code-conductor/config.json',
   'apm.yml',
   'apm.lock.yaml',
   'apm-policy.yml',
@@ -21,16 +24,24 @@ const fingerprintFiles = [
   'config/mcp-catalog.yaml',
 ] as const;
 
-export function workspaceFingerprint(root: string): string {
+export function workspaceFingerprint(root: string, userRoot = homedir()): string {
   const hash = createHash('sha256');
+  hash.update(packagedConfigurationFingerprint());
   hash.update(resolve(root));
+  hash.update('\0');
+  const userPreferences = join(userRoot, '.code-conductor', 'config.json');
+  hash.update(resolve(userPreferences)).update('\0');
+  try { hash.update(readBoundedFile(userPreferences, 65536)); }
+  catch (error) { hash.update((error as NodeJS.ErrnoException).code === 'ENOENT' ? '<missing-user-preferences>' : '<unsupported-user-preferences>'); }
   hash.update('\0');
   for (const relativePath of fingerprintFiles) {
     const path = join(root, relativePath);
     hash.update(relativePath);
     hash.update('\0');
-    if (existsSync(path)) hash.update(readFileSync(path));
-    else hash.update('<missing>');
+    try { hash.update(readBoundedFile(path, 1048576)); }
+    catch (error) {
+      hash.update((error as NodeJS.ErrnoException).code === 'ENOENT' ? '<missing>' : '<unsupported-file>');
+    }
     hash.update('\0');
   }
   return hash.digest('hex');
@@ -41,8 +52,8 @@ export function classifyStartup(previousFingerprint: string | undefined, current
   return previousFingerprint === currentFingerprint ? 'warm' : 'config_changed';
 }
 
-export function startupSnapshot(root: string, previousFingerprint?: string): StartupSnapshot {
-  const fingerprint = workspaceFingerprint(root);
+export function startupSnapshot(root: string, previousFingerprint?: string, userRoot = homedir()): StartupSnapshot {
+  const fingerprint = workspaceFingerprint(root, userRoot);
   return {
     mode: classifyStartup(previousFingerprint, fingerprint),
     fingerprint,

@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parse } from 'yaml';
+import { loadConfiguration, type ConfigurationName } from '@code-conductor/policy';
 import type { AgentAssignment, BillingChannel, RiskClass, Stance, TaskEnvelope } from '@code-conductor/schemas';
 
 interface RoleConstraints {
@@ -45,7 +43,7 @@ interface CapabilityDocument {
 
 const riskRank: Record<RiskClass, number> = { R0: 0, R1: 1, R2: 2, R3: 3, R4: 4 };
 
-function load<T>(root: string, path: string): T { return parse(readFileSync(join(root, path), 'utf8')) as T; }
+function load<T>(root: string, name: ConfigurationName): T { return loadConfiguration<T>(root, name).document; }
 function inheritedRoles(risks: RiskDocument, risk: RiskClass, seen = new Set<RiskClass>()): string[] {
   if (seen.has(risk)) throw new Error(`Risk inheritance cycle at ${risk}`);
   seen.add(risk);
@@ -109,9 +107,9 @@ export interface PlanOptions { availableHarnesses?: Set<string> }
 export interface TaskPlan { runId: string; task: TaskEnvelope; assignments: AgentAssignment[] }
 
 export function planTask(root: string, task: TaskEnvelope, options: PlanOptions = {}): TaskPlan {
-  const roles = load<RolesDocument>(root, 'config/roles.yaml');
-  const risks = load<RiskDocument>(root, 'config/risk.yaml');
-  const capabilities = load<CapabilityDocument>(root, 'config/capabilities.yaml');
+  const roles = load<RolesDocument>(root, 'roles');
+  const risks = load<RiskDocument>(root, 'risk');
+  const capabilities = load<CapabilityDocument>(root, 'capabilities');
   const requiredRoles = inheritedRoles(risks, task.risk);
   const requestedSpecializations = inferredSpecializations(task, capabilities);
   const available = options.availableHarnesses;

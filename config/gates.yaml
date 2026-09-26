@@ -5,7 +5,8 @@ default_timeout_ms: 600000
 profiles:
   code-conductor:
     detect:
-      all_files: [package.json, tsconfig.json]
+      package_name: "@code-conductor/root"
+      all_files: [package.json, packages/cli/src/index.ts]
     gates:
       - id: typecheck
         command: npm
@@ -18,6 +19,15 @@ profiles:
       - id: repository-policy
         command: node
         args: [packages/cli/dist/index.js, validate, .]
+        blocking: true
+
+  node:
+    detect:
+      any_file: [package.json]
+    gates:
+      - id: npm-test
+        command: npm
+        args: [test]
         blocking: true
 
   terraform:

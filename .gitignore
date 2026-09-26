@@ -28,3 +28,8 @@ Thumbs.db
 archive/
 archive work/
 
+
+# Generated from canonical config; bundled in distributions.
+packages/policy/defaults/
+apps/vscode/defaults/
+apps/vscode/schema/

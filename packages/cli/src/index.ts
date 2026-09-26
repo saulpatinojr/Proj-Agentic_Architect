@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { AgentAssignment, RiskClass, TaskEnvelope } from '@code-conductor/schemas';
-import { validateRepositoryConfig } from '@code-conductor/policy';
+import { validateRepositoryConfig, loadConfiguration } from '@code-conductor/policy';
 import { createTask, executeTask, planTask, parseAgentResult } from '@code-conductor/runtime';
 import { createBuiltinAdapters } from '@code-conductor/adapters';
 import { WorkstationStore, type HarnessTrustMode } from '@code-conductor/workstation';
@@ -23,6 +23,18 @@ function printValidation(root: string): number {
   for (const issue of report.issues) console.log(`${issue.level === 'error' ? 'ERROR' : 'WARN'} ${issue.code}${issue.path ? ` [${issue.path}]` : ''}: ${issue.message}`);
   console.log(report.ok ? 'Code Conductor repository validation: PASS' : 'Code Conductor repository validation: FAIL');
   return report.ok ? 0 : 1;
+}
+
+function validateWorkspace(root: string): number {
+  try {
+    const configuration = ['roles', 'risk', 'capabilities', 'authorities', 'gates', 'mcp-catalog', 'references'] as const;
+    const sources = configuration.map((name) => ({ name, sources: loadConfiguration(root, name).sources }));
+    console.log(JSON.stringify({ ok: true, mode: 'workspace', repository: root, sources }, null, 2));
+    return 0;
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
 }
 
 function vscodeExtensions(): Set<string> {
@@ -75,7 +87,11 @@ function doctor(root: string): number {
   for (const variable of ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'PERPLEXITY_API_KEY']) if (process.env[variable]) console.log(`WARN billing.api_credential_detected: ${variable} is set; subscription-first policy may be bypassed. Value is intentionally not displayed.`);
   if (hasCommand('gh')) console.log(`${githubAuthStatus(root).ok ? 'OK' : 'WARN'} github-auth`);
   if (hasCommand('apm')) { console.log(`${apmTargets(root).ok ? 'OK' : 'WARN'} apm-targets`); console.log(`${apmLockPresent(root) ? 'OK' : 'WARN'} apm-lock`); }
-  const configStatus = printValidation(root);
+  let configStatus = 0;
+  try {
+    for (const name of ['roles', 'risk', 'capabilities', 'gates', 'mcp-catalog'] as const) loadConfiguration(root, name);
+    console.log('OK packaged runtime configuration (not source-repository scaffold validation)');
+  } catch (error) { console.error(error instanceof Error ? error.message : String(error)); configStatus = 1; }
   return missingRequired || configStatus !== 0 ? 1 : 0;
 }
 
@@ -165,10 +181,11 @@ function compressFile(args: string[]): number {
     return 1;
   }
 }
-function usage(): void { console.log('Usage: cc <validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nplan/run accept optional --specializations <comma,separated,hints>; otherwise routing uses the small inspectable objective-signal map in config/capabilities.yaml.\n\nrun defaults to dry-run; pass --execute only after surface-specific harness smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.\n\nKiro ACP smoke requires --ack-kiro-policy after reading the current Kiro subscription/automation policy; run read smoke before modify smoke.\n\ncompress <file> defaults to lossless preparation scoped to --root <dir> (default: current directory). Use --aggressive only when comment/whitespace removal is explicitly acceptable.'); }
+function usage(): void { console.log('Usage: cc <validate|workspace-validate|doctor|plan|run|harness-smoke|mcp|apm-audit|github-gate|context-stats|compress|version> [options]\n\nplan/run accept optional --specializations <comma,separated,hints>; otherwise routing uses the small inspectable objective-signal map in config/capabilities.yaml.\n\nrun defaults to dry-run; pass --execute only after surface-specific harness smoke passes. Modifying worktrees are preserved by default; pass --cleanup-worktrees only to remove clean worktrees after the run.\n\nKiro ACP smoke requires --ack-kiro-policy after reading the current Kiro subscription/automation policy; run read smoke before modify smoke.\n\ncompress <file> defaults to lossless preparation scoped to --root <dir> (default: current directory). Use --aggressive only when comment/whitespace removal is explicitly acceptable.'); }
 
 const [command = 'help', ...args] = process.argv.slice(2); let exitCode = 0;
 switch (command) {
+  case 'workspace-validate': exitCode = validateWorkspace(resolve(args[0] ?? '.')); break;
   case 'validate': exitCode = printValidation(resolve(args[0] ?? '.')); break;
   case 'doctor': exitCode = doctor(resolve(args[0] ?? '.')); break;
   case 'plan': exitCode = plan(args); break;

@@ -13,15 +13,16 @@
   "scripts": {
     "build": "npm run build:ts && npm run build:vscode",
     "clean": "tsc -b --clean",
-    "typecheck": "tsc -b --pretty false",
-    "test": "vitest run",
+    "typecheck": "npm run defaults:package && tsc -b --pretty false",
+    "test": "npm run defaults:package && vitest run",
     "test:watch": "vitest",
     "cc:validate": "npm run build && node packages/cli/dist/index.js validate .",
     "cc:doctor": "npm run build && node packages/cli/dist/index.js doctor .",
     "cc:plan": "npm run build && node packages/cli/dist/index.js plan --repo . --risk R1 --objective 'Validate Code Conductor planning'",
-    "build:ts": "tsc -b",
-    "build:vscode": "esbuild apps/vscode/src/extension.ts --bundle --platform=node --format=esm --target=node22 --external:vscode --sourcemap --outfile=apps/vscode/dist/extension.js && esbuild packages/cli/src/index.ts --bundle --platform=node --format=esm --target=node22 --sourcemap --outfile=apps/vscode/dist/cc.js && node scripts/verify-vscode-bundle.mjs",
-    "package:vscode": "npm run build && node scripts/package-vscode.mjs"
+    "build:ts": "npm run defaults:package && tsc -b",
+    "build:vscode": "node scripts/build-vscode.mjs && node scripts/verify-vscode-bundle.mjs && node scripts/smoke-vscode-bundle.mjs",
+    "package:vscode": "npm run build && node scripts/package-vscode.mjs",
+    "defaults:package": "node scripts/package-defaults.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.1",
