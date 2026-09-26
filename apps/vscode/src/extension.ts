@@ -1,3 +1,4 @@
+import { discoveryInventory } from './discovery.js';
 import * as vscode from 'vscode';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -11,7 +12,7 @@ type ItemSpec = { label: string; description?: string; tooltip?: string; icon?: 
 type CapabilitySurface = { kind?: string; identifiers?: string[]; commands?: string[]; command?: string; interactive?: boolean; machine_execution?: boolean; requires_local_client?: boolean; enabled_by_default?: boolean };
 type HarnessCapability = { provider?: string; command_candidates?: string[]; primary_specializations?: string[]; preferred_execution_surface?: string; native_capabilities?: string[]; surfaces?: Record<string, CapabilitySurface> };
 type CapabilityDocument = { defaults?: { billing_policy?: string; allow_separately_billed_api?: boolean }; harnesses?: Record<string, HarnessCapability> };
-type LocalDiscovery = { version: 2; capturedAt: string; commands: Record<string, boolean>; extensions: Record<string, boolean> };
+type LocalDiscovery = { version: 3; capturedAt: string; commands: Record<string, boolean>; extensions: Record<string, boolean> };
 
 const STARTUP_FINGERPRINT_KEY = 'codeConductor.startupFingerprint';
 const STARTUP_MODE_KEY = 'codeConductor.startupMode';
@@ -150,13 +151,14 @@ function usageItems(root?: string): ItemSpec[] {
 }
 
 function discoverLocalSurfaces(): LocalDiscovery {
-  const commands = ['node', 'git', 'gh', 'apm', 'claude', 'codex', 'kiro-cli', 'agy', 'terraform', 'ansible', 'pwsh', 'az', 'aws', 'gcloud', 'kubectl', 'helm'];
-  const extensionIds = ['anthropic.claude-code', 'openai.chatgpt', 'github.copilot', 'github.copilot-chat', 'github.vscode-pull-request-github'];
+  if (!vscode.workspace.isTrusted) return { version: 3, capturedAt: new Date().toISOString(), commands: {}, extensions: {} };
+  const root = workspaceRoot();
+  const inventory = discoveryInventory(root ? loadYaml<CapabilityDocument>(root, 'config/capabilities.yaml') : undefined);
   return {
-    version: 2,
+    version: 3,
     capturedAt: new Date().toISOString(),
-    commands: Object.fromEntries(commands.map((command) => [command, commandExists(command)])),
-    extensions: Object.fromEntries(extensionIds.map((id) => [id, Boolean(vscode.extensions.getExtension(id))])),
+    commands: Object.fromEntries(inventory.commands.map((command) => [command, commandExists(command)])),
+    extensions: Object.fromEntries(inventory.extensionIds.map((id) => [id, Boolean(vscode.extensions.getExtension(id))])),
   };
 }
 
@@ -207,7 +209,7 @@ async function initializeStartup(context: vscode.ExtensionContext): Promise<vsco
   const snapshot = startupSnapshot(root, previous);
   let discovery = context.workspaceState.get<LocalDiscovery>(STARTUP_DISCOVERY_KEY);
 
-  if (snapshot.mode !== 'warm' || !discovery || discovery.version !== 2) {
+  if (snapshot.mode !== 'warm' || !discovery || discovery.version !== 3) {
     discovery = discoverLocalSurfaces();
     await context.workspaceState.update(STARTUP_DISCOVERY_KEY, discovery);
   }
