@@ -6,7 +6,9 @@ export function readBoundedFile(path: string, limit: number): Buffer {
   // On Windows O_NOFOLLOW is unavailable; bind the descriptor to the lstat identity.
   const before = process.platform === 'win32' ? lstatSync(path) : undefined;
   if (before && (!before.isFile() || before.isSymbolicLink())) throw new Error('Expected a regular non-symlink file.');
-  const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+  // Never creates/truncates a file. An explicit restrictive mode also makes
+  // the safe intent visible to analyzers that do not inspect numeric open flags.
+  const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0), 0o600);
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.size > limit || (before && (before.dev !== stat.dev || before.ino !== stat.ino))) {
