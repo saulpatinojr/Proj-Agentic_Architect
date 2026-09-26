@@ -33,8 +33,8 @@ function vscodeExtensions(): Set<string> {
 }
 
 function doctor(root: string): number {
-  const requiredClients = [['git', ['git']], ['github', ['gh']], ['apm', ['apm']]] as const;
-  const optionalTools = [['terraform', ['terraform']], ['ansible', ['ansible']], ['powershell', ['pwsh']], ['azure-cli', ['az']], ['aws-cli', ['aws']], ['gcloud', ['gcloud']], ['kubectl', ['kubectl']], ['helm', ['helm']]] as const;
+  const requiredClients = [['node', ['node']], ['git', ['git']], ['github', ['gh']]] as const;
+  const optionalTools = [['apm', ['apm']], ['terraform', ['terraform']], ['ansible', ['ansible']], ['powershell', ['pwsh']], ['azure-cli', ['az']], ['aws-cli', ['aws']], ['gcloud', ['gcloud']], ['kubectl', ['kubectl']], ['helm', ['helm']]] as const;
   const workstation = new WorkstationStore();
   const state = workstation.load();
   const adapters = createBuiltinAdapters();
