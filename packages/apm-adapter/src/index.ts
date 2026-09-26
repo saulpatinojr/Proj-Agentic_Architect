@@ -7,24 +7,64 @@ export interface ApmCommandResult {
   status: number | null;
   stdout: string;
   stderr: string;
+  timedOut: boolean;
+  outputLimitExceeded: boolean;
+  errorCode?: string;
 }
 
-function run(root: string, args: string[]): ApmCommandResult {
-  const result = spawnSync('apm', args, { cwd: root, encoding: 'utf8', shell: false });
-  const stderr = [result.stderr || '', result.error?.message || ''].filter(Boolean).join('\n');
-  return { ok: result.status === 0, status: result.status, stdout: result.stdout || '', stderr };
+export interface ApmRunOptions {
+  /** Finite wall-clock bound; defaults to two minutes (ten for install). */
+  timeoutMs?: number;
+  /** Maximum bytes per captured stream. Defaults to 4 MiB. */
+  maxBufferBytes?: number;
 }
 
-export function apmTargets(root: string): ApmCommandResult {
-  return run(root, ['targets']);
+function bounded(value: number, maximum: number, name: string): number {
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
+    throw new Error(`${name} must be a positive integer no greater than ${maximum}.`);
+  }
+  return value;
 }
 
-export function apmInstall(root: string): ApmCommandResult {
-  return run(root, ['install']);
+function run(root: string, args: string[], options: ApmRunOptions = {}): ApmCommandResult {
+  const timeout = bounded(options.timeoutMs ?? 120000, 900000, 'APM timeoutMs');
+  const maxBuffer = bounded(options.maxBufferBytes ?? 4 * 1024 * 1024, 16 * 1024 * 1024, 'APM maxBufferBytes');
+  const result = spawnSync('apm', args, {
+    cwd: root, encoding: 'utf8', shell: false, windowsHide: true,
+    timeout, maxBuffer, killSignal: 'SIGKILL',
+  });
+  const errorCode = (result.error as NodeJS.ErrnoException | undefined)?.code;
+  const timedOut = errorCode === 'ETIMEDOUT';
+  const outputLimitExceeded = errorCode === 'ENOBUFS';
+  const reason = timedOut
+    ? 'APM exceeded its time limit. Partial changes may remain; inspect the diff before retrying.'
+    : outputLimitExceeded
+      ? 'APM exceeded its output limit. Output may be incomplete; do not treat this as a successful audit.'
+      : result.error?.message;
+  const stderr = [result.stderr || '', reason || ''].filter(Boolean).join('\n');
+  return {
+    ok: result.status === 0 && !result.error && !result.signal,
+    status: result.status,
+    stdout: result.stdout || '',
+    stderr,
+    timedOut,
+    outputLimitExceeded,
+    ...(errorCode ? { errorCode } : {}),
+  };
 }
 
-export function apmAudit(root: string): ApmCommandResult {
-  return run(root, ['audit', '--ci', '--policy', './apm-policy.yml', '--no-fail-fast']);
+export function apmTargets(root: string, options?: ApmRunOptions): ApmCommandResult {
+  return run(root, ['targets'], options);
+}
+
+export function apmInstall(root: string, options: ApmRunOptions = {}): ApmCommandResult {
+  // No retries: install is side-effecting and may have partially changed files.
+  // Callers must obtain action-specific approval before invoking this boundary.
+  return run(root, ['install'], { ...options, timeoutMs: options.timeoutMs ?? 600000 });
+}
+
+export function apmAudit(root: string, options?: ApmRunOptions): ApmCommandResult {
+  return run(root, ['audit', '--ci', '--policy', './apm-policy.yml', '--no-fail-fast'], options);
 }
 
 export function apmLockPresent(root: string): boolean {
