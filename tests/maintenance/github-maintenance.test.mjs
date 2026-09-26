@@ -87,15 +87,21 @@ test('closed-unmerged, foreign-repo and non-default-base PRs do not authorize de
   assert.deepEqual(cleanupCandidates(repo, 'main', [branch('x')], [], [merged('x', { base: { ref: 'other', repo: { full_name: repo } } })]), []);
   assert.deepEqual(cleanupCandidates(repo, 'main', [branch('x')], [], [merged('x', { head: { ref: 'x', sha: sha('a'), repo: { full_name: 'someone/other' } } })]), []);
 });
-function branchHarness({ advance = false, diverged = false, wrongOrigin = false, pushFails = false, readbackFails = false } = {}) {
+function branchHarness({ advance = false, diverged = false, wrongOrigin = false, pushFails = false, readbackFails = false, headPrCount = 0, headPrOnRecheck = false } = {}) {
   const calls = [];
   let deleted = false;
+  let usageReads = 0;
   const run = (file, args) => {
     calls.push([file, args]);
     if (file === 'git') {
       if (args[0] === 'remote') return wrongOrigin ? 'https://github.com/other/repo.git' : `https://github.com/${repo}.git`;
       if (args[0] === 'push') { if (pushFails) throw new Error('stale lease'); deleted = true; }
       return '';
+    }
+    if (args.includes('graphql')) {
+      usageReads += 1;
+      const count = headPrOnRecheck && usageReads > 1 ? 1 : headPrCount;
+      return JSON.stringify({ data: { repository: { nameWithOwner: repo, ref: { name: 'merged', target: { oid: sha('a') }, associatedPullRequests: { totalCount: count, nodes: count ? [{ id: 'PR_other_base_repository' }] : [] } } } } });
     }
     const endpoint = args.at(-1);
     if (endpoint === `repos/${repo}`) return JSON.stringify({ full_name: repo, default_branch: 'main', archived: false });
@@ -166,4 +172,14 @@ test('real Git refuses a stale deletion lease in an isolated temporary repositor
     git(['push', `--force-with-lease=refs/heads/feature:${current}`, 'origin', ':refs/heads/feature'], work);
     assert.equal(git(['ls-remote', 'origin', 'refs/heads/feature'], work), '');
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('cross-repository open head is preserved in planning and at the final recheck', () => {
+  for (const options of [{ headPrCount: 1 }, { headPrOnRecheck: true }]) {
+    const h = branchHarness(options);
+    const report = cleanMergedBranches({ apply: true }, h.run);
+    assert.deepEqual(report.deleted, []);
+    assert.equal(h.calls.some(([file, args]) => file === 'git' && args[0] === 'push'), false);
+    assert.ok(report.skipped.some((item) => item.reason.includes('PR')));
+  }
 });

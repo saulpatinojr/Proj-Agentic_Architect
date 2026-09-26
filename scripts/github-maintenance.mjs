@@ -1,3 +1,4 @@
+import { hasOpenHeadPullRequest } from './branch-pr-usage.mjs';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -112,6 +113,10 @@ export function cleanMergedBranches(input = {}, run = command, onProgress = () =
   const eligible = [];
   const skipped = [];
   for (const item of candidates) {
+    if (hasOpenHeadPullRequest(opt.repository, item.branch, item.head, run)) {
+      skipped.push({ branch: item.branch, reason: 'Open PR uses this head ref, including another base repository.' });
+      continue;
+    }
     const comparison = api(run, `repos/${opt.repository}/compare/${item.merge}...${encodeURIComponent(repo.default_branch)}`);
     if (['ahead', 'identical'].includes(comparison.status) && comparison.merge_base_commit?.sha === item.merge) eligible.push(item);
     else skipped.push({ branch: item.branch, reason: 'Merged commit is not proven to be in the current default branch.' });
@@ -128,6 +133,10 @@ export function cleanMergedBranches(input = {}, run = command, onProgress = () =
       const comparison = api(run, `repos/${opt.repository}/compare/${item.merge}...${encodeURIComponent(repo.default_branch)}`);
       if (currentRepo.default_branch !== repo.default_branch || current.protected || current.commit?.sha !== item.head || protectedRefs(active, opt.repository).has(item.branch) || !['ahead', 'identical'].includes(comparison.status) || comparison.merge_base_commit?.sha !== item.merge) {
         skipped.push({ branch: item.branch, reason: 'Repository/branch/PR state changed; preserved.' });
+        continue;
+      }
+      if (hasOpenHeadPullRequest(opt.repository, item.branch, item.head, run)) {
+        skipped.push({ branch: item.branch, reason: 'An open PR now uses this head ref; preserved.' });
         continue;
       }
       const ref = `refs/heads/${item.branch}`;

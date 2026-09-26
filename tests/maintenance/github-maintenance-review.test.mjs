@@ -16,6 +16,7 @@ function fixture(failReadback = false) {
       if (args[0] === 'push') pushed = true;
       return '';
     }
+    if (args.includes('graphql')) return JSON.stringify({ data: { repository: { nameWithOwner: repo, ref: { name: branch.name, target: { oid: head }, associatedPullRequests: { totalCount: 0, nodes: [] } } } } });
     const endpoint = args.at(-1);
     if (endpoint === `repos/${repo}`) return JSON.stringify({ full_name: repo, default_branch: 'main' });
     if (endpoint.includes('/branches?')) return JSON.stringify([[{ name: 'main' }, ...(!pushed || failReadback ? [branch] : [])]]);
