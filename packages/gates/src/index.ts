@@ -158,6 +158,11 @@ export function runGates(root: string, profiles?: string[], executor: CommandExe
       });
     }
   }
+  if (!executions.length) {
+    const id = `E-${randomUUID()}`;
+    const summary = 'No applicable deterministic validation gates; readiness is blocked.';
+    executions.push({ profile: 'unmatched', blocking: true, result: { gate: 'no-applicable-gates', status: 'failed', evidenceIds: [id], summary }, evidence: { id, kind: 'test', source: 'gate-selection', summary } });
+  }
   return executions;
 }
 
