@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from 'yaml';
+import { loadConfiguration } from '@code-conductor/policy';
 
 export type McpProvenance = 'vendor_official' | 'code_conductor_first_party' | 'third_party';
 
@@ -38,7 +38,7 @@ export interface McpCatalog {
 }
 
 export function loadMcpCatalog(root: string): McpCatalog {
-  return parse(readFileSync(join(root, 'config/mcp-catalog.yaml'), 'utf8')) as McpCatalog;
+  return loadConfiguration<McpCatalog>(root, 'mcp-catalog').document;
 }
 
 export function detectRepositoryProfiles(root: string): string[] {

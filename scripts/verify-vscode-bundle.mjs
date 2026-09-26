@@ -28,3 +28,9 @@ if (/from\s+["']@code-conductor\//.test(runtime) || /require\(\s*["']@code-condu
 }
 
 console.log(`VS Code bundle verified: extension=${stats.get(files[0]).size} bytes runtime=${stats.get(files[1]).size} bytes`);
+
+for (const name of ['manifest.json', 'roles.yaml', 'risk.yaml', 'capabilities.yaml', 'gates.yaml', 'mcp-catalog.yaml']) {
+  if (!existsSync(resolve('apps/vscode/defaults', name))) throw new Error(`Missing packaged default: ${name}`);
+}
+
+if (!existsSync(resolve('apps/vscode/schema/contracts.schema.json'))) throw new Error('Missing packaged contract schema.');

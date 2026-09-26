@@ -1,6 +1,19 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "composite": true, "rootDir": "src", "outDir": "dist" },
-  "references": [{ "path": "../schemas" }],
-  "include": ["src/**/*.ts"]
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "references": [
+    {
+      "path": "../schemas"
+    },
+    {
+      "path": "../policy"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
 }

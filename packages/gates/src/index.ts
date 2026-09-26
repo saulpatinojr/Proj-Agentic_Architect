@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { parse } from 'yaml';
+import { loadConfiguration } from '@code-conductor/policy';
 import type { Evidence, GateResult } from '@code-conductor/schemas';
 
 export interface GateDefinition {
@@ -100,7 +100,7 @@ export function globMatch(path: string, pattern: string): boolean {
 }
 
 export function loadGateConfig(root: string): GateConfig {
-  return parse(readFileSync(join(root, 'config/gates.yaml'), 'utf8')) as GateConfig;
+  return loadConfiguration<GateConfig>(root, 'gates').document;
 }
 
 export function detectGateProfiles(root: string, config = loadGateConfig(root)): string[] {
@@ -116,7 +116,7 @@ export function detectGateProfiles(root: string, config = loadGateConfig(root)):
       : false;
     if (allFiles || anyFile || anyGlob) selected.push(name);
   }
-  return selected;
+  return selected.includes('code-conductor') ? selected.filter((name) => name !== 'node') : selected;
 }
 
 export function runGates(root: string, profiles?: string[], executor: CommandExecutor = defaultExecutor): GateExecution[] {

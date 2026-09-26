@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
+import { loadConfiguration, type ConfigurationName } from '@code-conductor/policy';
 import { startupSnapshot, type StartupMode } from './startup.js';
 import { cliProcessSpec, localCommandName, missingBaselineCommands } from './execution.js';
 
@@ -37,7 +38,12 @@ class ConductorProvider implements vscode.TreeDataProvider<ConductorItem> {
 }
 
 function workspaceRoot(): string | undefined { return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath; }
-function loadYaml<T>(root: string, path: string): T | undefined { try { return parse(readFileSync(join(root, path), 'utf8')) as T; } catch { return undefined; } }
+function loadYaml<T>(root: string, path: string): T | undefined {
+  if (path.startsWith('config/') && path.endsWith('.yaml')) {
+    return loadConfiguration<T>(root, path.slice(7, -5) as ConfigurationName).document;
+  }
+  try { return parse(readFileSync(join(root, path), 'utf8')) as T; } catch { return undefined; }
+}
 function commandExists(command: string): boolean {
   if (!vscode.workspace.isTrusted || !localCommandName(command)) return false;
   const probe = process.platform === 'win32' ? 'where' : 'which';
@@ -246,7 +252,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }));
   context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => { void vscode.commands.executeCommand('codeConductor.refresh'); }));
   context.subscriptions.push(vscode.commands.registerCommand('codeConductor.doctor', async () => { const r = root(); if (r) await runCli(context, r, ['doctor', '.'], 'Code Conductor Doctor'); }));
-  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.validate', async () => { const r = root(); if (r) await runCli(context, r, ['validate', '.'], 'Code Conductor Validate'); }));
+  context.subscriptions.push(vscode.commands.registerCommand('codeConductor.validate', async () => { const r = root(); if (r) await runCli(context, r, ['workspace-validate', '.'], 'Code Conductor Validate'); }));
   context.subscriptions.push(vscode.commands.registerCommand('codeConductor.plan', async () => {
     const r = root(); if (!r) return; const objective = await vscode.window.showInputBox({ prompt: 'Task objective', ignoreFocusOut: true }); if (!objective) return;
     const risk = await vscode.window.showQuickPick(['R0', 'R1', 'R2', 'R3', 'R4'], { placeHolder: 'Risk class' }); if (!risk) return;

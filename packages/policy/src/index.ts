@@ -212,3 +212,6 @@ export function validateRepositoryConfig(root: string): ValidationReport {
 
   return { ok: !issues.some((issue) => issue.level === 'error'), issues };
 }
+
+export { loadConfiguration, packagedConfigurationFingerprint } from './defaults.js';
+export type { ConfigurationName, ConfigurationSource, ConfigurationOptions } from './defaults.js';
