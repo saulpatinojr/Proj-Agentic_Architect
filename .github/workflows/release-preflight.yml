@@ -1,0 +1,82 @@
+name: Release preflight
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-preflight-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source:
+    name: Immutable source snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Archive tracked source and record tested revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/source-snapshot"
+          git rev-parse HEAD > "$RUNNER_TEMP/source-snapshot/SOURCE_REVISION"
+          git archive --format=tar HEAD | gzip -n > "$RUNNER_TEMP/source-snapshot/source.tar.gz"
+          cd "$RUNNER_TEMP/source-snapshot"
+          sha256sum source.tar.gz SOURCE_REVISION > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: source-snapshot-${{ github.run_id }}
+          path: ${{ runner.temp }}/source-snapshot/
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    name: VSIX packaging preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run package:vscode
+        env:
+          # Deliberate non-production validation identity; never published.
+          VSCE_PUBLISHER: code-conductor-validation
+      - name: Inspect package contents and retain verification material
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vsix-preflight"
+          find release -maxdepth 1 -type f -name '*.vsix' -exec cp {} "$RUNNER_TEMP/vsix-preflight/" \;
+          cd "$RUNNER_TEMP/vsix-preflight"
+          shopt -s nullglob
+          packages=(*.vsix)
+          test "${#packages[@]}" -eq 1
+          unzip -Z1 "${packages[0]}" > PACKAGE_FILES.txt
+          grep -Fxq 'extension/dist/extension.js' PACKAGE_FILES.txt
+          grep -Fxq 'extension/dist/cc.js' PACKAGE_FILES.txt
+          if grep -Eq '(^|/)node_modules/|(^|/)\.git/' PACKAGE_FILES.txt; then
+            echo 'Unexpected dependency tree or Git internals in VSIX' >&2
+            exit 1
+          fi
+          printf '%s\n' 'Validation-only publisher; not a Marketplace release.' > VALIDATION_ONLY.txt
+          sha256sum "${packages[@]}" > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: vsix-preflight-${{ github.run_id }}
+          path: ${{ runner.temp }}/vsix-preflight/
+          if-no-files-found: error
+          retention-days: 7
