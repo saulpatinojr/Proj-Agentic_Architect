@@ -1,0 +1,58 @@
+name: One-time maintenance review patch import
+on:
+  push:
+    branches: [chore/maintenance-review-import]
+permissions:
+  contents: write
+  issues: read
+jobs:
+  import:
+    if: github.repository == 'saulpatinojr/Proj-Code_Conductor' && github.ref == 'refs/heads/chore/maintenance-review-import'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+      - name: Apply the independent source diff without executing it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = b899212cd26f896e8236d360d1cb19730a28f029
+          gh api repos/saulpatinojr/Proj-Code_Conductor/issues/comments/5844123225 > "$RUNNER_TEMP/review-patch.json"
+          python3 - <<'PY'
+          import json,os,pathlib,re,subprocess
+          response=json.loads(pathlib.Path(os.environ['RUNNER_TEMP'],'review-patch.json').read_text())
+          assert response['id']==5844123225
+          assert response['user']['login']=='chatgpt-codex-connector[bot]'
+          assert response['updated_at']=='2026-09-26T07:04:29Z'
+          patches=re.findall(r'```patch\n(.*?)\n```',response['body'],re.S)
+          assert len(patches)==1
+          patch=patches[0].encode()+b'\n'
+          assert len(patch)<100000
+          paths=re.findall(rb'^diff --git a/(\S+) b/(\S+)$',patch,re.M)
+          allowed={b'docs/FEATURES-DELIVERY.md',b'scripts/github-maintenance.mjs',b'tests/maintenance/github-maintenance.test.mjs',b'tests/maintenance/github-maintenance-review.test.mjs'}
+          assert len(paths)==4 and {a for a,b in paths}==allowed and all(a==b for a,b in paths)
+          subprocess.run(['git','apply','--check','--index'],input=patch,check=True)
+          subprocess.run(['git','apply','--index'],input=patch,check=True)
+          assert set(subprocess.check_output(['git','diff','--cached','--name-only']).splitlines())==allowed
+          pathlib.Path(os.environ['RUNNER_TEMP'],'verified-review.patch').write_bytes(patch)
+          PY
+          git rm .github/workflows/maintenance-review-import.yml
+          git diff --cached --check
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: preserve cross-repository PR branch associations' -m 'Import the independent Codex source patch from comment 5844123225. No source executed during import; temporary workflow removed. Related #57 and delivery #56.'
+          git push --force-with-lease=refs/heads/chore/features-project-maintenance:b899212cd26f896e8236d360d1cb19730a28f029 origin HEAD:refs/heads/chore/features-project-maintenance
+          mkdir -p "$RUNNER_TEMP/maintenance-source"
+          git archive --format=tar HEAD | gzip -n > "$RUNNER_TEMP/maintenance-source/source.tar.gz"
+          git rev-parse HEAD > "$RUNNER_TEMP/maintenance-source/REVISION"
+          cp "$RUNNER_TEMP/verified-review.patch" "$RUNNER_TEMP/maintenance-source/"
+          git push --force-with-lease="refs/heads/chore/maintenance-review-import:$GITHUB_SHA" origin :refs/heads/chore/maintenance-review-import
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reviewed-maintenance-source-${{ github.run_id }}
+          path: ${{ runner.temp }}/maintenance-source/
+          retention-days: 1
+          if-no-files-found: error
