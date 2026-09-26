@@ -51,24 +51,6 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
-      - name: Temporary offline validation toolchain (remove before merge)
-        if: github.event_name == 'pull_request' && github.head_ref == 'chore/release-preflight-evidence'
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/offline-validation"
-          tar -czf "$RUNNER_TEMP/offline-validation/node_modules.tar.gz" node_modules
-          cp "$(command -v node)" "$RUNNER_TEMP/offline-validation/node"
-          cp package-lock.json "$RUNNER_TEMP/offline-validation/package-lock.json"
-          cd "$RUNNER_TEMP/offline-validation"
-          sha256sum node_modules.tar.gz node package-lock.json > SHA256SUMS
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: github.event_name == 'pull_request' && github.head_ref == 'chore/release-preflight-evidence'
-        with:
-          name: temporary-offline-validation-${{ github.run_id }}
-          path: ${{ runner.temp }}/offline-validation/
-          if-no-files-found: error
-          retention-days: 1
       - run: npm run package:vscode
         env:
           # Deliberate non-production validation identity; never published.
