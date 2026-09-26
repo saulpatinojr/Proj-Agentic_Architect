@@ -9,6 +9,11 @@
   "categories": ["Other"],
   "activationEvents": ["onStartupFinished", "onView:codeConductor.team", "onCommand:codeConductor.doctor"],
   "main": "./dist/extension.js",
+  "extensionKind": ["workspace"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": "limited", "description": "Process discovery and execution are disabled until native Workspace Trust is granted." },
+    "virtualWorkspaces": { "supported": false }
+  },
   "contributes": {
     "commands": [
       { "command": "codeConductor.refresh", "title": "Code Conductor: Refresh Local Discovery" },
