@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { loadConfiguration } from '@code-conductor/policy';
@@ -15,6 +15,7 @@ export interface GateDefinition {
 
 interface GateProfile {
   detect?: {
+    package_name?: string;
     all_files?: string[];
     any_file?: string[];
     any_glob?: string[];
@@ -109,6 +110,15 @@ export function detectGateProfiles(root: string, config = loadGateConfig(root)):
   for (const [name, profile] of Object.entries(config.profiles)) {
     const detect = profile.detect;
     if (!detect) continue;
+    if (detect.package_name) {
+      try {
+        const path = join(root, 'package.json');
+        const stat = lstatSync(path);
+        if (!stat.isFile() || stat.size > 1048576) continue;
+        const content = readFileSync(path);
+        if (content.length > 1048576 || JSON.parse(content.toString('utf8')).name !== detect.package_name) continue;
+      } catch { continue; }
+    }
     const allFiles = detect.all_files?.every((file) => existsSync(join(root, file))) ?? false;
     const anyFile = detect.any_file?.some((file) => existsSync(join(root, file))) ?? false;
     const anyGlob = detect.any_glob?.length

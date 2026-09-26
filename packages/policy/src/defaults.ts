@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,8 +43,13 @@ function loadPreferences(root: string, source: 'user' | 'workspace', roles: Role
   const base = resolve(root);
   const folder = join(base, '.code-conductor');
   const path = join(folder, 'config.json');
-  if (!existsSync(path)) return undefined;
-  if (lstatSync(folder).isSymbolicLink() || lstatSync(path).isSymbolicLink()) throw new Error(`Symlink configuration overrides are not supported: ${path}`);
+  const directory = lstatSync(folder, { throwIfNoEntry: false });
+  if (!directory) return undefined;
+  if (directory.isSymbolicLink()) throw new Error(`Symlink configuration overrides are not supported: ${folder}`);
+  if (!directory.isDirectory()) throw new Error(`Configuration parent must be a directory: ${folder}`);
+  const entry = lstatSync(path, { throwIfNoEntry: false });
+  if (!entry) return undefined;
+  if (entry.isSymbolicLink()) throw new Error(`Symlink configuration overrides are not supported: ${path}`);
   const bytes = readBounded(path, 65536);
   const value: unknown = JSON.parse(bytes.toString('utf8'));
   assertPlain(value, 'Configuration');

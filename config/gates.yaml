@@ -5,6 +5,7 @@ default_timeout_ms: 600000
 profiles:
   code-conductor:
     detect:
+      package_name: "@code-conductor/root"
       all_files: [package.json, packages/cli/src/index.ts]
     gates:
       - id: typecheck

@@ -104,3 +104,29 @@ describe('packaged zero-scaffolding defaults', () => {
     }
   });
 });
+
+
+describe('independent review regressions', () => {
+  it('does not identify an unrelated monorepo by a common CLI source path', () => {
+    const root = fixture();
+    mkdirSync(join(root, 'packages', 'cli', 'src'), { recursive: true });
+    writeFileSync(join(root, 'packages', 'cli', 'src', 'index.ts'), 'export {};');
+    writeFileSync(join(root, 'package.json'), '{"name":"unrelated","scripts":{"test":"node --test"}}');
+    expect(detectGateProfiles(root)).toEqual(['node']);
+    writeFileSync(join(root, 'package.json'), '{"name":"@code-conductor/root"}');
+    expect(detectGateProfiles(root)).toEqual(['code-conductor']);
+  });
+  it.each(['user', 'workspace'])('rejects dangling %s configuration symlinks', (source) => {
+    const user = fixture(), workspace = fixture();
+    const target = source === 'user' ? user : workspace;
+    mkdirSync(join(target, '.code-conductor'));
+    symlinkSync(join(target, 'nonexistent-config'), join(target, '.code-conductor', 'config.json'));
+    expect(() => loadConfiguration(workspace, 'roles', { userRoot: user })).toThrow(/Symlink/);
+  });
+  it.each(['user', 'workspace'])('rejects dangling %s configuration directory links', (source) => {
+    const user = fixture(), workspace = fixture();
+    const target = source === 'user' ? user : workspace;
+    symlinkSync(join(target, 'nonexistent-directory'), join(target, '.code-conductor'), 'dir');
+    expect(() => loadConfiguration(workspace, 'roles', { userRoot: user })).toThrow(/Symlink/);
+  });
+});
