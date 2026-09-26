@@ -31,7 +31,8 @@ jobs:
 
   cleanup:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
       (github.event_name == 'pull_request' && github.event.action == 'closed' &&
        github.event.pull_request.merged == true &&
        github.event.pull_request.head.repo.full_name == github.repository &&
@@ -45,11 +46,19 @@ jobs:
       contents: write
       pull-requests: read
     steps:
-      - name: Check out trusted default branch, never the PR head
+      - name: Check out the immutable reviewed merge or dispatch revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
           fetch-depth: 0
+      - name: Verify exact trusted revision before running repository code
+        env:
+          TRUSTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.merge_commit_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$TRUSTED_SHA" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$TRUSTED_SHA"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'

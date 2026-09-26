@@ -1,83 +1,85 @@
 # Code Conductor - Features delivery
 
-Canonical execution ledger: issue #56. Approved scope: #32 and optional #39, #53, #54, #55.
-The requested Project is https://github.com/users/saulpatinojr/projects/3 . Its requested
-name is **Code Conductor - Features**. A document or issue title is not proof that the
-Project has been renamed or populated.
+Canonical execution ledger: #56. Approved scope: #32 and optional #39, #53, #54, #55.
+Existing Project: https://github.com/users/saulpatinojr/projects/3 . Requested name:
+**Code Conductor - Features**. This document is not proof that the Project changed.
 
 ## Project synchronization
 
-Use Node.js 22+ and the official GitHub CLI with authorized access to this user-owned
-Project. Run from a trusted checkout. No PAT belongs in source, chat or a command argument.
-This script does not sign in, create tokens, broaden scopes or create a replacement Project.
+Use Node.js 22+ and official GitHub CLI authorization for this user-owned Project.
+Run from a trusted checkout. Never put a PAT in source, chat or command arguments.
+The script does not sign in, create tokens, broaden scopes or replace the Project.
 
 ```sh
 node scripts/github-maintenance.mjs project
 node scripts/github-maintenance.mjs project --apply
 ```
 
-The first command is read-only. The second renames the existing Project and adds all
-repository issues (including historical closed issues) plus open PRs. It paginates,
-preserves existing items/views/fields, skips already-present URLs, and reads back the
-result. Interrupted/denied runs may have partial changes: rerun the preview before retrying.
-Project write permission is separate from repository write access. The repository's
-GITHUB_TOKEN must not be assumed to authorize personal Project management.
+The first command is read-only. Apply renames the existing Project and adds all repository
+issues, including historical closed issues, plus open PRs. It paginates, preserves existing
+items/views/fields, skips present URLs and reads back the result. Progress is emitted after
+each successful mutation. Interrupted runs can have partial effects: preview again before
+retrying. A repository GITHUB_TOKEN does not imply personal Project write access.
 
-## Branch and PR cleanup
+## Branch cleanup
 
 ```sh
 node scripts/github-maintenance.mjs branches
 node scripts/github-maintenance.mjs branches --apply
 ```
 
-Apply requires an authenticated Git remote named origin that exactly matches the selected
-GitHub repository. Only a branch whose unchanged tip is recorded by a merged PR into the
-current default branch is eligible. The merge commit must still be an ancestor of that
-default branch. Default/protected branches, active PR heads and bases, unmerged work,
-and branches with later commits are preserved. Git deletion uses an explicit expected-SHA
-lease, not an unconditional REST deletion or blind force push. Any lease/authentication
-failure stops the run. No PR is closed merely because it is old.
+Apply requires an authenticated origin remote matching the selected repository. Only an
+unchanged branch tip recorded by a merged PR into the current default branch is eligible;
+the merge commit must still be in that default branch. Default/protected branches, observed
+active PR heads/bases, unmerged work and later commits are excluded. A deletion uses an
+explicit expected-SHA lease, not an unconditional REST delete or blind force push.
 
-The Repository maintenance workflow runs these tests on PRs. After a same-repository PR
-is merged into the default branch, it checks out the trusted default branch and performs
-the approved verified-merged cleanup. A manual workflow run defaults to preview only.
-It never checks out untrusted PR code in a privileged pull_request_target workflow.
+**Metadata race:** GitHub PR metadata and Git refs do not change atomically. A new PR can
+appear after the final metadata read while the branch SHA stays unchanged. A Git SHA lease
+cannot prevent that race. Coordinate cleanup with collaborators; use GitHub-native merged
+branch deletion when appropriate. This tool does not guarantee atomic preservation of all
+new PR relationships. No PR is intentionally closed merely because it is old.
 
-## Final integration procedure
+Each successful deletion immediately records its branch, previous SHA and merged PR. A
+later failure carries the accumulated deletion report, so partial effects remain auditable.
+The prior SHA is recovery evidence. Never treat a failed read-back as successful completion.
 
-1. Complete and independently review each implementation PR; fix findings and re-review
-   changed heads. Do not treat implementation permission as a passed test or reviewer approval.
-2. Require the relevant CI results for the exact PR head. Preserve separation of duties.
-3. Merge eligible work into main through a reviewed PR, never by force-resetting main.
-4. Inspect cleanup logs and remaining branches; preserve any branch lacking proof of safe deletion.
-5. On each owner workstation, ensure the worktree is clean or deliberately stash/commit
-   existing work, then run `git fetch --prune origin`, `git switch main`, and
-   `git pull --ff-only origin main`. A merge on GitHub does not update a desktop checkout.
-6. Update #56 with PR URLs, exact validation, remaining blockers and the verified main SHA.
+The maintenance workflow runs tests on PRs. Same-repository merge cleanup checks out the
+immutable merged commit, not a moving branch name. Manual runs default to preview, must be
+dispatched from the then-default branch and pin the dispatch SHA. The exact SHA is verified
+before repository scripts/tests execute. A later default-branch rename cannot redirect
+privileged code execution. Official credential helpers remain with Git/GitHub; the script
+never reads or prints credentials. No pull_request_target checkout of untrusted code is used.
 
-## Work order and preserved scope
+## Integration and workstation synchronization
 
-Foundation first: #43 packaged defaults, #44 pre-action approval and #45 native interfaces.
-Then #33-#38 and #42 complete the initial zero-scaffolding harness acceptance.
-Optional #39/#40 and #53-#55 stay separately selectable and must not become mandatory
-startup dependencies. #41 Kiro remains a validated pilot. #13 needs the actual legacy
-corpus for semantic migration. #46 hosted infrastructure remains explicitly deferred.
+1. Independently review implementation PRs and fix findings; re-review material pushes.
+2. Verify relevant CI for the exact head before the owner-directed merge. Preserve separation
+   of duties; implementation permission is not evidence that tests or review passed.
+3. Merge through the PR workflow; never force-reset main to dispose of conflicts.
+4. Inspect cleanup logs and preserve branches without safe-disposition evidence.
+5. On each owner workstation, first preserve any local work, then `git fetch --prune origin`,
+   `git switch main`, and `git pull --ff-only origin main`. GitHub merging does not update
+   a desktop checkout automatically.
+6. Record PRs, validation, remaining blockers and the verified main SHA in #56.
 
-Owner-environment gates remain distinct: Project authorization; repository administration;
-provider sign-in and current-client trust validation; Marketplace publication credentials;
-and real clean-machine/R1/R2 evidence. Do not mark these complete from fixture tests.
+## Scope and remaining gates
 
-## Validation and primary references
+Foundation: #43 packaged defaults, #44 pre-action approval, #45 native interfaces. Initial
+harness acceptance: #33-#38 and #42. Optional packs/MCP and GitHub One-Click: #39/#40/#53-#55.
+Kiro #41 remains a guarded pilot; #13 needs the actual legacy corpus. Hosted infrastructure
+#46 stays deferred. User-environment gates include Project/admin permissions, provider sign-in,
+workstation smoke/R1/R2 evidence, and Marketplace publication authorization.
 
 ```sh
 node --test tests/maintenance/*.test.mjs
 ```
 
-Tests use fake GitHub responses and a disposable local Git repository; they do not mutate
-this checkout or require a token. Live GitHub validation remains separately reportable.
+Tests use fake GitHub responses and disposable Git fixtures, never a real Project/token.
+Live mutation and workstation state must be verified separately.
 
-- https://cli.github.com/manual/gh_api
-- https://cli.github.com/manual/gh_project_edit
-- https://cli.github.com/manual/gh_project_item-add
-- https://git-scm.com/docs/git-push
-- https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
+References: https://cli.github.com/manual/gh_api
+https://cli.github.com/manual/gh_project_edit
+https://cli.github.com/manual/gh_project_item-add
+https://git-scm.com/docs/git-push
+https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
